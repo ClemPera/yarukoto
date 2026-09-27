@@ -61,17 +61,17 @@ function toggleDaily(id) {
   render();
 }
 
-function completeToday(id) {
+function toggleToday(id) {
   const task = state.tasks.find((t) => t.id === id);
-  task.completed = true;
-  task.completions.push(todayStr());
-  saveData(state);
-  render();
-}
-
-function restoreToday(id) {
-  const task = state.tasks.find((t) => t.id === id);
-  task.completed = false;
+  const today = todayStr();
+  if (task.completed) {
+    task.completed = false;
+    const idx = task.completions.indexOf(today);
+    if (idx !== -1) task.completions.splice(idx, 1);
+  } else {
+    task.completed = true;
+    task.completions.push(today);
+  }
   saveData(state);
   render();
 }
@@ -113,7 +113,9 @@ function render() {
 
   const today = todayStr();
   const dailyTasks = state.tasks.filter((t) => t.type === "daily");
-  const todayTasks = state.tasks.filter((t) => t.type === "today" && !t.completed);
+  const todayTasks = state.tasks.filter(
+    (t) => t.type === "today" && (!t.completed || t.completions.includes(today))
+  );
 
   const dailyList = document.getElementById("daily-list");
   dailyList.innerHTML = "";
@@ -125,7 +127,7 @@ function render() {
   const todayList = document.getElementById("today-list");
   todayList.innerHTML = "";
   todayTasks.forEach((t) =>
-    todayList.append(makeTaskRow(t, { onToggle: completeToday, onCheck: () => false }))
+    todayList.append(makeTaskRow(t, { onToggle: toggleToday, onCheck: (task) => task.completed }))
   );
   document.getElementById("today-empty").hidden = todayTasks.length > 0;
 
@@ -163,11 +165,8 @@ function renderHistory(dailyTasks) {
   historyList.innerHTML = "";
   completedToday.forEach((task) => {
     const li = document.createElement("li");
-    const label = document.createElement("button");
-    label.type = "button";
-    label.className = "link-button";
+    const label = document.createElement("span");
     label.textContent = task.title;
-    label.addEventListener("click", () => restoreToday(task.id));
     const date = document.createElement("span");
     date.className = "history-date";
     date.textContent = task.completions.at(-1) || "";
