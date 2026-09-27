@@ -10,6 +10,7 @@ A small local-first daily task tracker. No account, no server, no sync — every
 - **Today** tasks are one-off: if you don't finish one, it just stays on the list until you do — nothing is lost.
 - **Local** only: no backend, no accounts. Data stays in your browser via `localStorage`.
 - **Export / import**: back up your data to a JSON file, or restore from one.
+- **Dark mode**: follows your OS/browser color-scheme preference automatically.
 
 ## Running it
 
