@@ -152,6 +152,37 @@ body {
   margin: 0.4rem 0;
 }
 
+.all-done-note {
+  font-family: "Shippori Mincho", serif;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  text-align: center;
+  margin: 0 0 1.1rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .all-done-note:not([hidden]) { animation: fade-in 0.4s ease-out; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.confetti-piece {
+  position: fixed;
+  width: 5px;
+  height: 9px;
+  pointer-events: none;
+  z-index: 1000;
+  animation: confetti-burst 0.65s ease-out forwards;
+}
+
+@keyframes confetti-burst {
+  from { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  to { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity: 0; }
+}
+
 .add-form {
   border-top: 1px solid var(--paper-line);
   padding-top: 1rem;
