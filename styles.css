@@ -99,6 +99,27 @@ body {
 
 .task-row:last-child { border-bottom: none; }
 
+.task-priority {
+  flex: none;
+  width: 1rem;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+  color: var(--paper-line);
+  text-align: center;
+}
+
+.task-priority[data-priority="high"] { color: var(--seal); }
+.task-priority[data-priority="low"] { opacity: 0.6; }
+
+.task-priority:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
 .task-check {
   appearance: none;
   width: 1.35rem;
