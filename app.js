@@ -57,16 +57,19 @@ function burstConfetti(fromEl) {
 }
 
 let state = loadData();
+let justAddedId = null;
 
 function addTask(title, type) {
+  const id = uid();
   state.tasks.push({
-    id: uid(),
+    id,
     title,
     type,
     createdAt: todayStr(),
     completed: false,
     completions: [],
   });
+  justAddedId = id;
   saveData(state);
   render();
 }
@@ -104,7 +107,7 @@ function restoreToday(id) {
 
 function makeTaskRow(task, { onToggle, onCheck }) {
   const li = document.createElement("li");
-  li.className = "task-row";
+  li.className = "task-row" + (task.id === justAddedId ? " row-enter" : "");
   li.dataset.type = task.type;
 
   const check = document.createElement("input");
@@ -126,7 +129,13 @@ function makeTaskRow(task, { onToggle, onCheck }) {
   del.setAttribute("aria-label", `Delete "${task.title}"`);
   del.textContent = "×";
   del.addEventListener("click", () => {
-    if (confirm(`Delete "${task.title}"?`)) deleteTask(task.id);
+    if (!confirm(`Delete "${task.title}"?`)) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      deleteTask(task.id);
+      return;
+    }
+    li.classList.add("row-exit");
+    li.addEventListener("animationend", () => deleteTask(task.id), { once: true });
   });
 
   li.append(check, title, del);
@@ -166,6 +175,7 @@ function render() {
   );
 
   renderHistory(dailyTasks);
+  justAddedId = null;
 }
 
 function renderHistory(dailyTasks) {
