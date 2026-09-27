@@ -31,6 +31,7 @@ function saveData(data) {
 }
 
 let state = loadData();
+let editingId = null;
 
 function addTask(title, type) {
   state.tasks.push({
@@ -76,7 +77,17 @@ function restoreToday(id) {
   render();
 }
 
+function updateTask(id, updates) {
+  const task = state.tasks.find((t) => t.id === id);
+  Object.assign(task, updates);
+  saveData(state);
+  editingId = null;
+  render();
+}
+
 function makeTaskRow(task, { onToggle, onCheck }) {
+  if (task.id === editingId) return makeEditRow(task);
+
   const li = document.createElement("li");
   li.className = "task-row";
   li.dataset.type = task.type;
@@ -91,6 +102,16 @@ function makeTaskRow(task, { onToggle, onCheck }) {
   title.className = "task-title";
   title.textContent = task.title;
 
+  const edit = document.createElement("button");
+  edit.type = "button";
+  edit.className = "task-edit";
+  edit.setAttribute("aria-label", `Edit "${task.title}"`);
+  edit.textContent = "✎";
+  edit.addEventListener("click", () => {
+    editingId = task.id;
+    render();
+  });
+
   const del = document.createElement("button");
   del.type = "button";
   del.className = "task-delete";
@@ -100,7 +121,67 @@ function makeTaskRow(task, { onToggle, onCheck }) {
     if (confirm(`Delete "${task.title}"?`)) deleteTask(task.id);
   });
 
-  li.append(check, title, del);
+  li.append(check, title, edit, del);
+  return li;
+}
+
+function makeEditRow(task) {
+  const li = document.createElement("li");
+  li.className = "task-row task-row-editing";
+
+  const form = document.createElement("form");
+  form.className = "edit-form";
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "edit-title-input";
+  input.value = task.title;
+  input.maxLength = 120;
+  input.required = true;
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      editingId = null;
+      render();
+    }
+  });
+
+  const typeWrap = document.createElement("div");
+  typeWrap.className = "edit-type";
+  ["daily", "today"].forEach((type) => {
+    const label = document.createElement("label");
+    const radio = document.createElement("input");
+    radio.type = "radio";
+    radio.name = `edit-type-${task.id}`;
+    radio.value = type;
+    radio.checked = task.type === type;
+    label.append(radio, document.createTextNode(type === "daily" ? "Daily" : "Just today"));
+    typeWrap.append(label);
+  });
+
+  const actions = document.createElement("div");
+  actions.className = "edit-actions";
+  const save = document.createElement("button");
+  save.type = "submit";
+  save.textContent = "Save";
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.textContent = "Cancel";
+  cancel.addEventListener("click", () => {
+    editingId = null;
+    render();
+  });
+  actions.append(save, cancel);
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const title = input.value.trim();
+    if (!title) return;
+    const type = typeWrap.querySelector("input:checked").value;
+    updateTask(task.id, { title, type });
+  });
+
+  form.append(input, typeWrap, actions);
+  li.append(form);
   return li;
 }
 
@@ -130,6 +211,14 @@ function render() {
   document.getElementById("today-empty").hidden = todayTasks.length > 0;
 
   renderHistory(dailyTasks);
+
+  if (editingId) {
+    const input = document.querySelector(".edit-form .edit-title-input");
+    if (input) {
+      input.focus();
+      input.select();
+    }
+  }
 }
 
 function renderHistory(dailyTasks) {
