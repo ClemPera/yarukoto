@@ -1,6 +1,12 @@
 const STORAGE_KEY = "yarukoto-data";
 const HISTORY_DAYS = 14;
 
+// crypto.randomUUID requires a secure context (https/localhost); avoid it so
+// the app also works over plain http, e.g. a phone hitting a LAN IP
+function uid() {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
 function todayStr(offsetDays = 0) {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
@@ -28,7 +34,7 @@ let state = loadData();
 
 function addTask(title, type) {
   state.tasks.push({
-    id: crypto.randomUUID(),
+    id: uid(),
     title,
     type,
     createdAt: todayStr(),
