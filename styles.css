@@ -99,6 +99,24 @@ body {
 
 .task-row:last-child { border-bottom: none; }
 
+@media (prefers-reduced-motion: no-preference) {
+  .task-row.row-enter { animation: row-enter-kf 0.22s ease-out; }
+  .task-row.row-exit {
+    animation: row-exit-kf 0.18s ease-in forwards;
+    pointer-events: none;
+  }
+}
+
+@keyframes row-enter-kf {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes row-exit-kf {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.96) translateX(6px); }
+}
+
 .task-check {
   appearance: none;
   width: 1.35rem;
@@ -128,6 +146,7 @@ body {
 
 @media (prefers-reduced-motion: no-preference) {
   .task-check::after { transition: transform 0.18s ease-out; }
+  .task-title { transition: color 0.15s ease, text-decoration-color 0.15s ease; }
 }
 
 .task-row[data-type="daily"] .task-check { border-color: var(--daily-mark); }
@@ -246,6 +265,37 @@ body {
   font-size: 0.9rem;
   font-style: italic;
   margin: 0.4rem 0;
+}
+
+.all-done-note {
+  font-family: "Shippori Mincho", serif;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  text-align: center;
+  margin: 0 0 1.1rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .all-done-note:not([hidden]) { animation: fade-in 0.4s ease-out; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.confetti-piece {
+  position: fixed;
+  width: 5px;
+  height: 9px;
+  pointer-events: none;
+  z-index: 1000;
+  animation: confetti-burst 0.65s ease-out forwards;
+}
+
+@keyframes confetti-burst {
+  from { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  to { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity: 0; }
 }
 
 .add-form {
