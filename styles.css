@@ -189,6 +189,25 @@ body {
   text-decoration-color: var(--paper-line);
 }
 
+.task-edit {
+  flex: none;
+  border: none;
+  background: none;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 0.25rem 0.35rem;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.task-edit:hover { opacity: 1; color: var(--focus-ring); }
+
+.task-edit:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
 .task-delete {
   flex: none;
   border: none;
@@ -206,6 +225,65 @@ body {
   outline: 2px solid var(--focus-ring);
   outline-offset: 1px;
 }
+
+.task-row-editing { padding: 0.5rem 0; }
+
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.edit-title-input {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid var(--paper-line);
+  background: transparent;
+  font-size: 1rem;
+  padding: 0.2rem 0.1rem;
+  color: var(--ink);
+  font-family: inherit;
+}
+
+.edit-title-input:focus-visible {
+  outline: none;
+  border-bottom-color: var(--focus-ring);
+}
+
+.edit-type {
+  display: flex;
+  gap: 0.9rem;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.edit-type label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 0.7rem;
+}
+
+.edit-actions button {
+  border: none;
+  background: none;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0.2rem 0;
+}
+
+.edit-actions button[type="submit"] {
+  color: var(--focus-ring);
+  font-weight: 600;
+}
+
+.edit-actions button[type="button"] { color: var(--ink-soft); }
 
 .empty-note {
   color: var(--ink-soft);
