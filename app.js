@@ -1,5 +1,10 @@
 const STORAGE_KEY = "yarukoto-data";
 const HISTORY_DAYS = 14;
+const PRIORITY_ORDER = { high: 0, normal: 1, low: 2 };
+const PRIORITY_LABEL = { high: "High", normal: "Normal", low: "Low" };
+const PRIORITY_CYCLE = { normal: "high", high: "low", low: "normal" };
+// same convention as Jira: up = high, down = low, equals = normal
+const PRIORITY_GLYPH = { high: "↑", normal: "=", low: "↓" };
 
 // crypto.randomUUID requires a secure context (https/localhost); avoid it so
 // the app also works over plain http, e.g. a phone hitting a LAN IP
@@ -8,7 +13,7 @@ function uid() {
 }
 
 function todayStr(offsetDays = 0) {
-  const d = new Date();
+  const d = effectiveNow();
   d.setDate(d.getDate() + offsetDays);
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -18,16 +23,42 @@ function todayStr(offsetDays = 0) {
 
 function loadData() {
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return { version: 1, tasks: [] };
+  const fallback = { version: 1, tasks: [], settings: { resetMinutes: 0 } };
+  if (!raw) return fallback;
   try {
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    return { ...fallback, ...parsed, settings: { ...fallback.settings, ...parsed.settings } };
   } catch {
-    return { version: 1, tasks: [] };
+    return fallback;
   }
 }
 
 function saveData(data) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function getResetMinutes() {
+  return state.settings.resetMinutes ?? 0;
+}
+
+// "now" shifted back by the configured reset time, so the calendar date of
+// the result is the app's current "day" - e.g. with a 4:00am reset, 2:30am
+// still counts as the previous day
+function effectiveNow() {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - getResetMinutes());
+  return d;
+}
+
+function minutesToTimeStr(mins) {
+  const hh = String(Math.floor(mins / 60)).padStart(2, "0");
+  const mm = String(mins % 60).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+function timeStrToMinutes(str) {
+  const [hh, mm] = str.split(":").map(Number);
+  return hh * 60 + mm;
 }
 
 const CONFETTI_COLORS = ["--seal", "--daily-mark", "--ink"];
@@ -66,6 +97,7 @@ function addTask(title, type) {
     id,
     title,
     type,
+    priority: "normal",
     createdAt: todayStr(),
     completed: false,
     completions: [],
@@ -73,6 +105,19 @@ function addTask(title, type) {
   justAddedId = id;
   saveData(state);
   render();
+}
+
+function cyclePriority(id) {
+  const task = state.tasks.find((t) => t.id === id);
+  task.priority = PRIORITY_CYCLE[task.priority || "normal"];
+  saveData(state);
+  render();
+}
+
+function sortByPriority(tasks) {
+  return [...tasks].sort(
+    (a, b) => PRIORITY_ORDER[a.priority || "normal"] - PRIORITY_ORDER[b.priority || "normal"]
+  );
 }
 
 function deleteTask(id) {
@@ -121,6 +166,16 @@ function makeTaskRow(task, { onToggle, onCheck }) {
   li.className = "task-row" + (task.id === justAddedId ? " row-enter" : "");
   li.dataset.type = task.type;
 
+  const priority = task.priority || "normal";
+  const flag = document.createElement("button");
+  flag.type = "button";
+  flag.className = "task-priority";
+  flag.dataset.priority = priority;
+  flag.textContent = PRIORITY_GLYPH[priority];
+  flag.title = `${PRIORITY_LABEL[priority]} priority (click to change)`;
+  flag.setAttribute("aria-label", `Priority: ${PRIORITY_LABEL[priority]}. Click to change.`);
+  flag.addEventListener("click", () => cyclePriority(task.id));
+
   const check = document.createElement("input");
   check.type = "checkbox";
   check.className = "task-check";
@@ -159,7 +214,7 @@ function makeTaskRow(task, { onToggle, onCheck }) {
     li.addEventListener("animationend", () => deleteTask(task.id), { once: true });
   });
 
-  li.append(check, title, edit, del);
+  li.append(flag, check, title, edit, del);
   return li;
 }
 
@@ -224,15 +279,16 @@ function makeEditRow(task) {
 }
 
 function render() {
-  document.getElementById("today-date").textContent = new Date().toLocaleDateString(undefined, {
+  document.getElementById("today-date").textContent = effectiveNow().toLocaleDateString(undefined, {
     weekday: "long",
     month: "long",
     day: "numeric",
   });
+  document.getElementById("reset-time-input").value = minutesToTimeStr(getResetMinutes());
 
   const today = todayStr();
-  const dailyTasks = state.tasks.filter((t) => t.type === "daily");
-  const todayTasks = state.tasks.filter((t) => t.type === "today" && !t.completed);
+  const dailyTasks = sortByPriority(state.tasks.filter((t) => t.type === "daily"));
+  const todayTasks = sortByPriority(state.tasks.filter((t) => t.type === "today" && !t.completed));
 
   const dailyList = document.getElementById("daily-list");
   dailyList.innerHTML = "";
@@ -330,6 +386,20 @@ document.getElementById("history-toggle").addEventListener("click", (e) => {
   e.target.setAttribute("aria-expanded", String(open));
 });
 
+document.getElementById("settings-toggle").addEventListener("click", (e) => {
+  const panel = document.getElementById("settings-panel");
+  const open = panel.hidden;
+  panel.hidden = !open;
+  e.target.setAttribute("aria-expanded", String(open));
+});
+
+document.getElementById("reset-time-input").addEventListener("change", (e) => {
+  if (!e.target.value) return;
+  state.settings.resetMinutes = timeStrToMinutes(e.target.value);
+  saveData(state);
+  render();
+});
+
 document.getElementById("export-button").addEventListener("click", () => {
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -348,7 +418,7 @@ document.getElementById("import-input").addEventListener("change", async (e) => 
     const parsed = JSON.parse(text);
     if (!Array.isArray(parsed.tasks)) throw new Error("invalid file");
     if (!confirm("Replace current tasks with this backup?")) return;
-    state = parsed;
+    state = { ...parsed, settings: { resetMinutes: 0, ...parsed.settings } };
     saveData(state);
     render();
   } catch {
