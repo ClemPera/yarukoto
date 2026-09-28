@@ -1,5 +1,10 @@
 const STORAGE_KEY = "yarukoto-data";
 const HISTORY_DAYS = 14;
+const PRIORITY_ORDER = { high: 0, normal: 1, low: 2 };
+const PRIORITY_LABEL = { high: "High", normal: "Normal", low: "Low" };
+const PRIORITY_CYCLE = { normal: "high", high: "low", low: "normal" };
+// same convention as Jira: up = high, down = low, equals = normal
+const PRIORITY_GLYPH = { high: "↑", normal: "=", low: "↓" };
 
 // crypto.randomUUID requires a secure context (https/localhost); avoid it so
 // the app also works over plain http, e.g. a phone hitting a LAN IP
@@ -91,6 +96,7 @@ function addTask(title, type) {
     id,
     title,
     type,
+    priority: "normal",
     createdAt: todayStr(),
     completed: false,
     completions: [],
@@ -98,6 +104,19 @@ function addTask(title, type) {
   justAddedId = id;
   saveData(state);
   render();
+}
+
+function cyclePriority(id) {
+  const task = state.tasks.find((t) => t.id === id);
+  task.priority = PRIORITY_CYCLE[task.priority || "normal"];
+  saveData(state);
+  render();
+}
+
+function sortByPriority(tasks) {
+  return [...tasks].sort(
+    (a, b) => PRIORITY_ORDER[a.priority || "normal"] - PRIORITY_ORDER[b.priority || "normal"]
+  );
 }
 
 function deleteTask(id) {
@@ -136,6 +155,16 @@ function makeTaskRow(task, { onToggle, onCheck }) {
   li.className = "task-row" + (task.id === justAddedId ? " row-enter" : "");
   li.dataset.type = task.type;
 
+  const priority = task.priority || "normal";
+  const flag = document.createElement("button");
+  flag.type = "button";
+  flag.className = "task-priority";
+  flag.dataset.priority = priority;
+  flag.textContent = PRIORITY_GLYPH[priority];
+  flag.title = `${PRIORITY_LABEL[priority]} priority (click to change)`;
+  flag.setAttribute("aria-label", `Priority: ${PRIORITY_LABEL[priority]}. Click to change.`);
+  flag.addEventListener("click", () => cyclePriority(task.id));
+
   const check = document.createElement("input");
   check.type = "checkbox";
   check.className = "task-check";
@@ -164,7 +193,7 @@ function makeTaskRow(task, { onToggle, onCheck }) {
     li.addEventListener("animationend", () => deleteTask(task.id), { once: true });
   });
 
-  li.append(check, title, del);
+  li.append(flag, check, title, del);
   return li;
 }
 
@@ -177,8 +206,8 @@ function render() {
   document.getElementById("reset-time-input").value = minutesToTimeStr(getResetMinutes());
 
   const today = todayStr();
-  const dailyTasks = state.tasks.filter((t) => t.type === "daily");
-  const todayTasks = state.tasks.filter((t) => t.type === "today" && !t.completed);
+  const dailyTasks = sortByPriority(state.tasks.filter((t) => t.type === "daily"));
+  const todayTasks = sortByPriority(state.tasks.filter((t) => t.type === "today" && !t.completed));
 
   const dailyList = document.getElementById("daily-list");
   dailyList.innerHTML = "";

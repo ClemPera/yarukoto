@@ -11,6 +11,7 @@ A small local-first daily task tracker. No account, no server, no sync — every
 - **Local** only: no backend, no accounts. Data stays in your browser via `localStorage`.
 - **Export / import**: back up your data to a JSON file, or restore from one.
 - **Dark mode**: follows your OS/browser color-scheme preference automatically.
+- **Priority**: click the small marker next to a task to cycle `=` Normal, `↑` High, `↓` Low. Tasks sort by priority within their list.
 
 ## Running it
 
