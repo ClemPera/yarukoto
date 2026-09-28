@@ -164,6 +164,7 @@ function makeTaskRow(task, { onToggle, onCheck }) {
 
   const li = document.createElement("li");
   li.className = "task-row" + (task.id === justAddedId ? " row-enter" : "");
+  li.dataset.id = task.id;
   li.dataset.type = task.type;
 
   const priority = task.priority || "normal";
@@ -283,6 +284,34 @@ function pendingFirst(tasks, isDone) {
   return [...tasks.filter((t) => !isDone(t)), ...tasks.filter(isDone)];
 }
 
+// FLIP: record each row's top before the lists are rebuilt, keyed by task id
+function captureRowTops(lists) {
+  const tops = new Map();
+  lists.forEach((list) =>
+    list.querySelectorAll(".task-row[data-id]").forEach((row) => {
+      tops.set(row.dataset.id, row.getBoundingClientRect().top);
+    })
+  );
+  return tops;
+}
+
+// slide rows from their old position to the new one when a re-render moves them
+function animateRowMoves(firstTops) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  document.querySelectorAll(".task-row[data-id]").forEach((row) => {
+    if (row.classList.contains("row-enter")) return;
+    const first = firstTops.get(row.dataset.id);
+    if (first === undefined) return;
+    const dy = first - row.getBoundingClientRect().top;
+    if (Math.abs(dy) < 1) return;
+    // WAAPI fills none by default, so no transform lingers afterwards
+    row.animate(
+      [{ transform: `translateY(${dy}px)` }, { transform: "translateY(0)" }],
+      { duration: 200, easing: "ease-out" }
+    );
+  });
+}
+
 function render() {
   document.getElementById("today-date").textContent = effectiveNow().toLocaleDateString(undefined, {
     weekday: "long",
@@ -300,18 +329,22 @@ function render() {
   );
 
   const dailyList = document.getElementById("daily-list");
+  const todayList = document.getElementById("today-list");
+  const firstTops = captureRowTops([dailyList, todayList]);
+
   dailyList.innerHTML = "";
   pendingFirst(dailyTasks, isDailyDone).forEach((t) =>
     dailyList.append(makeTaskRow(t, { onToggle: toggleDaily, onCheck: isDailyDone }))
   );
   document.getElementById("daily-empty").hidden = dailyTasks.length > 0;
 
-  const todayList = document.getElementById("today-list");
   todayList.innerHTML = "";
   pendingFirst(todayTasks, isTodayDone).forEach((t) =>
     todayList.append(makeTaskRow(t, { onToggle: toggleToday, onCheck: isTodayDone }))
   );
   document.getElementById("today-empty").hidden = todayTasks.length > 0;
+
+  animateRowMoves(firstTops);
 
   const hasVisibleTasks = dailyTasks.length > 0 || todayTasks.length > 0;
   document.getElementById("all-done-note").hidden = !(
