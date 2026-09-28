@@ -142,6 +142,11 @@ function makeTaskRow(task, { onToggle, onCheck }) {
   return li;
 }
 
+// not-done tasks first, done ones (struck through) below, each group keeping its order
+function pendingFirst(tasks, isDone) {
+  return [...tasks.filter((t) => !isDone(t)), ...tasks.filter(isDone)];
+}
+
 function render() {
   document.getElementById("today-date").textContent = new Date().toLocaleDateString(undefined, {
     weekday: "long",
@@ -150,6 +155,8 @@ function render() {
   });
 
   const today = todayStr();
+  const isDailyDone = (t) => t.completions.includes(today);
+  const isTodayDone = (t) => t.completed;
   const dailyTasks = state.tasks.filter((t) => t.type === "daily");
   const todayTasks = state.tasks.filter(
     (t) => t.type === "today" && (!t.completed || t.completions.includes(today))
@@ -157,23 +164,21 @@ function render() {
 
   const dailyList = document.getElementById("daily-list");
   dailyList.innerHTML = "";
-  dailyTasks.forEach((t) =>
-    dailyList.append(makeTaskRow(t, { onToggle: toggleDaily, onCheck: (task) => task.completions.includes(today) }))
+  pendingFirst(dailyTasks, isDailyDone).forEach((t) =>
+    dailyList.append(makeTaskRow(t, { onToggle: toggleDaily, onCheck: isDailyDone }))
   );
   document.getElementById("daily-empty").hidden = dailyTasks.length > 0;
 
   const todayList = document.getElementById("today-list");
   todayList.innerHTML = "";
-  todayTasks.forEach((t) =>
-    todayList.append(makeTaskRow(t, { onToggle: toggleToday, onCheck: (task) => task.completed }))
+  pendingFirst(todayTasks, isTodayDone).forEach((t) =>
+    todayList.append(makeTaskRow(t, { onToggle: toggleToday, onCheck: isTodayDone }))
   );
   document.getElementById("today-empty").hidden = todayTasks.length > 0;
 
-  const hasTasks = dailyTasks.length > 0 || state.tasks.some((t) => t.type === "today");
-  const allDailyDone = dailyTasks.length > 0 && dailyTasks.every((t) => t.completions.includes(today));
-  const noDailyTasks = dailyTasks.length === 0;
+  const hasVisibleTasks = dailyTasks.length > 0 || todayTasks.length > 0;
   document.getElementById("all-done-note").hidden = !(
-    hasTasks && (allDailyDone || noDailyTasks) && todayTasks.length === 0
+    hasVisibleTasks && dailyTasks.every(isDailyDone) && todayTasks.every(isTodayDone)
   );
 
   renderHistory(dailyTasks);
