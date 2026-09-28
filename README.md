@@ -15,10 +15,21 @@ A small local-first daily task tracker. No account, no server, no sync — every
 
 ## Running it
 
-No build step, no dependencies. Either:
+No build step and no runtime dependencies. Either:
 
 - Open `index.html` directly in a browser, or
 - Serve the folder locally, e.g. `python3 -m http.server`, then visit `http://localhost:8000`
+
+## Testing
+
+The test suite boots the real `index.html` and `app.js` in jsdom, so no browser is needed. Install the dev dependencies once, then run the tests:
+
+```sh
+npm install   # dev dependencies only
+npm test
+```
+
+CI runs the suite on pushes to `main` and on pull requests.
 
 ## Stack
 
