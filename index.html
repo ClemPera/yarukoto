@@ -45,12 +45,20 @@
 
     <footer class="page-footer">
       <button type="button" class="link-button" id="history-toggle" aria-expanded="false" aria-controls="history-panel">history</button>
+      <button type="button" class="link-button" id="settings-toggle" aria-expanded="false" aria-controls="settings-panel">settings</button>
       <button type="button" class="link-button" id="export-button">export</button>
       <label class="link-button file-label">
         import
         <input type="file" id="import-input" accept="application/json" hidden>
       </label>
     </footer>
+
+    <section class="settings-panel" id="settings-panel" hidden>
+      <h2>Settings</h2>
+      <label class="settings-row" for="reset-time-input">Day resets at</label>
+      <input type="time" id="reset-time-input" value="00:00">
+      <p class="settings-hint">Your local time. Before this, it still counts as the previous day.</p>
+    </section>
 
     <section class="history-panel" id="history-panel" hidden>
       <h2>History</h2>

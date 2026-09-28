@@ -8,7 +8,7 @@ function uid() {
 }
 
 function todayStr(offsetDays = 0) {
-  const d = new Date();
+  const d = effectiveNow();
   d.setDate(d.getDate() + offsetDays);
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -18,16 +18,42 @@ function todayStr(offsetDays = 0) {
 
 function loadData() {
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return { version: 1, tasks: [] };
+  const fallback = { version: 1, tasks: [], settings: { resetMinutes: 0 } };
+  if (!raw) return fallback;
   try {
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    return { ...fallback, ...parsed, settings: { ...fallback.settings, ...parsed.settings } };
   } catch {
-    return { version: 1, tasks: [] };
+    return fallback;
   }
 }
 
 function saveData(data) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function getResetMinutes() {
+  return state.settings.resetMinutes ?? 0;
+}
+
+// "now" shifted back by the configured reset time, so the calendar date of
+// the result is the app's current "day" - e.g. with a 4:00am reset, 2:30am
+// still counts as the previous day
+function effectiveNow() {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - getResetMinutes());
+  return d;
+}
+
+function minutesToTimeStr(mins) {
+  const hh = String(Math.floor(mins / 60)).padStart(2, "0");
+  const mm = String(mins % 60).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+function timeStrToMinutes(str) {
+  const [hh, mm] = str.split(":").map(Number);
+  return hh * 60 + mm;
 }
 
 let state = loadData();
@@ -105,11 +131,12 @@ function makeTaskRow(task, { onToggle, onCheck }) {
 }
 
 function render() {
-  document.getElementById("today-date").textContent = new Date().toLocaleDateString(undefined, {
+  document.getElementById("today-date").textContent = effectiveNow().toLocaleDateString(undefined, {
     weekday: "long",
     month: "long",
     day: "numeric",
   });
+  document.getElementById("reset-time-input").value = minutesToTimeStr(getResetMinutes());
 
   const today = todayStr();
   const dailyTasks = state.tasks.filter((t) => t.type === "daily");
@@ -195,6 +222,20 @@ document.getElementById("history-toggle").addEventListener("click", (e) => {
   e.target.setAttribute("aria-expanded", String(open));
 });
 
+document.getElementById("settings-toggle").addEventListener("click", (e) => {
+  const panel = document.getElementById("settings-panel");
+  const open = panel.hidden;
+  panel.hidden = !open;
+  e.target.setAttribute("aria-expanded", String(open));
+});
+
+document.getElementById("reset-time-input").addEventListener("change", (e) => {
+  if (!e.target.value) return;
+  state.settings.resetMinutes = timeStrToMinutes(e.target.value);
+  saveData(state);
+  render();
+});
+
 document.getElementById("export-button").addEventListener("click", () => {
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -213,7 +254,7 @@ document.getElementById("import-input").addEventListener("change", async (e) => 
     const parsed = JSON.parse(text);
     if (!Array.isArray(parsed.tasks)) throw new Error("invalid file");
     if (!confirm("Replace current tasks with this backup?")) return;
-    state = parsed;
+    state = { ...parsed, settings: { resetMinutes: 0, ...parsed.settings } };
     saveData(state);
     render();
   } catch {
