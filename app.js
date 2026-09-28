@@ -56,17 +56,46 @@ function timeStrToMinutes(str) {
   return hh * 60 + mm;
 }
 
+const CONFETTI_COLORS = ["--seal", "--daily-mark", "--ink"];
+
+function burstConfetti(fromEl) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const rect = fromEl.getBoundingClientRect();
+  const originX = rect.left + rect.width / 2;
+  const originY = rect.top + rect.height / 2;
+  const styles = getComputedStyle(document.documentElement);
+  const colors = CONFETTI_COLORS.map((v) => styles.getPropertyValue(v).trim());
+
+  for (let i = 0; i < 12; i++) {
+    const piece = document.createElement("span");
+    piece.className = "confetti-piece";
+    const angle = Math.random() * Math.PI * 2;
+    const distance = 36 + Math.random() * 46;
+    piece.style.setProperty("--dx", `${Math.cos(angle) * distance}px`);
+    piece.style.setProperty("--dy", `${Math.sin(angle) * distance - 26}px`);
+    piece.style.setProperty("--rot", `${(Math.random() - 0.5) * 480}deg`);
+    piece.style.background = colors[i % colors.length];
+    piece.style.left = `${originX}px`;
+    piece.style.top = `${originY}px`;
+    document.body.append(piece);
+    piece.addEventListener("animationend", () => piece.remove());
+  }
+}
+
 let state = loadData();
+let justAddedId = null;
 
 function addTask(title, type) {
+  const id = uid();
   state.tasks.push({
-    id: uid(),
+    id,
     title,
     type,
     createdAt: todayStr(),
     completed: false,
     completions: [],
   });
+  justAddedId = id;
   saveData(state);
   render();
 }
@@ -104,14 +133,17 @@ function restoreToday(id) {
 
 function makeTaskRow(task, { onToggle, onCheck }) {
   const li = document.createElement("li");
-  li.className = "task-row";
+  li.className = "task-row" + (task.id === justAddedId ? " row-enter" : "");
   li.dataset.type = task.type;
 
   const check = document.createElement("input");
   check.type = "checkbox";
   check.className = "task-check";
   check.checked = onCheck(task);
-  check.addEventListener("change", () => onToggle(task.id));
+  check.addEventListener("change", () => {
+    if (check.checked) burstConfetti(check);
+    onToggle(task.id);
+  });
 
   const title = document.createElement("span");
   title.className = "task-title";
@@ -123,7 +155,13 @@ function makeTaskRow(task, { onToggle, onCheck }) {
   del.setAttribute("aria-label", `Delete "${task.title}"`);
   del.textContent = "×";
   del.addEventListener("click", () => {
-    if (confirm(`Delete "${task.title}"?`)) deleteTask(task.id);
+    if (!confirm(`Delete "${task.title}"?`)) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      deleteTask(task.id);
+      return;
+    }
+    li.classList.add("row-exit");
+    li.addEventListener("animationend", () => deleteTask(task.id), { once: true });
   });
 
   li.append(check, title, del);
@@ -156,7 +194,15 @@ function render() {
   );
   document.getElementById("today-empty").hidden = todayTasks.length > 0;
 
+  const hasTasks = dailyTasks.length > 0 || state.tasks.some((t) => t.type === "today");
+  const allDailyDone = dailyTasks.length > 0 && dailyTasks.every((t) => t.completions.includes(today));
+  const noDailyTasks = dailyTasks.length === 0;
+  document.getElementById("all-done-note").hidden = !(
+    hasTasks && (allDailyDone || noDailyTasks) && todayTasks.length === 0
+  );
+
   renderHistory(dailyTasks);
+  justAddedId = null;
 }
 
 function renderHistory(dailyTasks) {
