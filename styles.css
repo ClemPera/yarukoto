@@ -35,6 +35,7 @@ body {
   min-height: 100vh;
   display: flex;
   justify-content: center;
+  align-items: flex-start;
   background: var(--page-bg);
   color: var(--ink);
   font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -63,6 +64,16 @@ body {
   font-size: 1.6rem;
   margin: 0;
   letter-spacing: 0.01em;
+}
+
+.logo-mark {
+  display: inline-block;
+  width: 0.62em;
+  height: 0.62em;
+  border-radius: 50%;
+  background: var(--seal);
+  margin-right: 0.5rem;
+  vertical-align: 0.05em;
 }
 
 .jp { margin-right: 0.5rem; }
