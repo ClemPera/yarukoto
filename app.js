@@ -90,6 +90,8 @@ function burstConfetti(fromEl) {
 let state = loadData();
 let editingId = null;
 let justAddedId = null;
+let renderedDay = null;
+let rolloverTimer = null;
 
 function addTask(title, type) {
   const id = uid();
@@ -321,6 +323,7 @@ function render() {
   document.getElementById("reset-time-input").value = minutesToTimeStr(getResetMinutes());
 
   const today = todayStr();
+  renderedDay = today;
   const isDailyDone = (t) => t.completions.includes(today);
   const isTodayDone = (t) => t.completed;
   const dailyTasks = sortByPriority(state.tasks.filter((t) => t.type === "daily"));
@@ -405,6 +408,51 @@ function renderHistory(dailyTasks) {
   document.getElementById("history-empty").hidden = completedToday.length > 0;
 }
 
+// how long the timer may sleep before re-reading the clock; timers can run late
+// or pause while the computer sleeps, so the day is never counted down, only re-read
+const ROLLOVER_POLL_MS = 30000;
+
+function msUntilNextReset() {
+  const now = new Date();
+  const mins = getResetMinutes();
+  const at = (dayOffset) =>
+    new Date(now.getFullYear(), now.getMonth(), now.getDate() + dayOffset, Math.floor(mins / 60), mins % 60, 0, 0);
+  const next = at(0) > now ? at(0) : at(1);
+  return next - now;
+}
+
+// redraw when the app's "day" has moved on since the last render, so habits
+// uncheck and the header date updates without a reload
+function checkDayRollover() {
+  if (todayStr() === renderedDay) return;
+  // keep an open editor intact; saving or cancelling re-renders with the new day
+  if (editingId) return;
+  render();
+}
+
+function scheduleRolloverCheck() {
+  clearTimeout(rolloverTimer);
+  const delay = Math.min(msUntilNextReset() + 250, ROLLOVER_POLL_MS);
+  rolloverTimer = setTimeout(() => {
+    checkDayRollover();
+    scheduleRolloverCheck();
+  }, delay);
+}
+
+// coming back from sleep, a hidden tab or the back/forward cache: check now
+// instead of waiting for the next timer tick
+function checkAfterWake() {
+  checkDayRollover();
+  scheduleRolloverCheck();
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") checkAfterWake();
+});
+window.addEventListener("focus", checkAfterWake);
+window.addEventListener("pageshow", checkAfterWake);
+scheduleRolloverCheck();
+
 document.getElementById("add-form").addEventListener("submit", (e) => {
   e.preventDefault();
   const input = document.getElementById("add-input");
@@ -435,6 +483,7 @@ document.getElementById("reset-time-input").addEventListener("change", (e) => {
   state.settings.resetMinutes = timeStrToMinutes(e.target.value);
   saveData(state);
   render();
+  scheduleRolloverCheck();
 });
 
 document.getElementById("export-button").addEventListener("click", () => {
@@ -458,6 +507,7 @@ document.getElementById("import-input").addEventListener("change", async (e) => 
     state = { ...parsed, settings: { resetMinutes: 0, ...parsed.settings } };
     saveData(state);
     render();
+    scheduleRolloverCheck();
   } catch {
     alert("That file doesn't look like a Yarukoto backup.");
   } finally {

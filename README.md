@@ -6,7 +6,7 @@ A small local-first daily task tracker. No account, no server, no sync — every
 
 ## How it works
 
-- **Daily** tasks are habits: they reappear every day and reset to unchecked at midnight by default, or at a time you choose in settings (handy if your day runs past midnight). A history view shows the last 14 days per habit.
+- **Daily** tasks are habits: they reappear every day and reset to unchecked at midnight by default, or at a time you choose in settings (handy if your day runs past midnight). The switch happens on its own, even if the tab stays open or the computer slept through it. A history view shows the last 14 days per habit.
 - **Today** tasks are one-off: if you don't finish one, it just stays on the list until you do — nothing is lost. Once checked, it stays visible with a strikethrough below the pending ones for the rest of the day (tap again to undo), then drops off the active list — still logged in History.
 - **Local** only: no backend, no accounts. Data stays in your browser via `localStorage`.
 - **Export / import**: back up your data to a JSON file, or restore from one.
