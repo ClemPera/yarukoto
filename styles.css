@@ -417,6 +417,134 @@ body {
 
 .file-label { display: inline-flex; }
 
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  padding: 1rem;
+  overflow-y: auto;
+  background: rgba(20, 18, 15, 0.55);
+}
+
+.modal-backdrop[hidden] { display: none; }
+
+.modal {
+  width: 100%;
+  max-width: 24rem;
+  margin: auto;
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--paper-line);
+  border-radius: 2px;
+  box-shadow: 0 1px 0 var(--paper-line), var(--page-shadow);
+  padding: 1.5rem 1.5rem 1.2rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .modal-backdrop:not([hidden]) .modal { animation: modal-in-kf 0.24s ease-out; }
+}
+
+@keyframes modal-in-kf {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.modal-title {
+  font-family: "Shippori Mincho", serif;
+  font-size: 1.3rem;
+  margin: 0 0 0.4rem;
+}
+
+.modal-lead {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  margin: 0 0 1rem;
+}
+
+.intro-list {
+  list-style: none;
+  margin: 0 0 1.2rem;
+  padding: 0;
+}
+
+.intro-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px dashed var(--paper-line);
+}
+
+.intro-list li:last-child { border-bottom: none; }
+
+.intro-list p {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.intro-icon {
+  flex: none;
+  width: 2.6rem;
+  display: flex;
+  justify-content: center;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* mirror the checked task circles the user will see in the lists */
+.intro-icon-daily::before,
+.intro-icon-today::before {
+  content: "";
+  width: 1.35rem;
+  height: 1.35rem;
+  box-sizing: border-box;
+  border: 1.5px solid;
+  border-radius: 50%;
+}
+
+.intro-icon-daily::before {
+  border-color: var(--daily-mark);
+  background: radial-gradient(circle, var(--daily-mark) 0 38%, transparent 42%);
+}
+
+.intro-icon-today::before {
+  border-color: var(--ink-soft);
+  background: radial-gradient(circle, var(--seal) 0 38%, transparent 42%);
+}
+
+.intro-icon-local { font-size: 1.3rem; }
+
+.modal-primary {
+  width: 100%;
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+  padding: 0.6rem 1rem;
+  font-size: 1rem;
+  font-family: inherit;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.modal-primary:hover { background: var(--ink-soft); border-color: var(--ink-soft); }
+
+.modal-primary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.modal-hint {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  text-align: center;
+  margin: 0.7rem 0 0;
+}
+
+
 .history-panel, .settings-panel {
   border-top: 1px solid var(--paper-line);
   margin-top: 1rem;

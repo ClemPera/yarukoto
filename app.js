@@ -23,7 +23,9 @@ function todayStr(offsetDays = 0) {
 
 function loadData() {
   const raw = localStorage.getItem(STORAGE_KEY);
-  const fallback = { version: 1, tasks: [], settings: { resetMinutes: 0 } };
+  // only a brand new install (nothing saved yet) gets the intro on its own;
+  // anyone with existing data is treated as having seen it
+  const fallback = { version: 1, tasks: [], settings: { resetMinutes: 0, introSeen: raw !== null } };
   if (!raw) return fallback;
   try {
     const parsed = JSON.parse(raw);
@@ -455,7 +457,7 @@ document.getElementById("import-input").addEventListener("change", async (e) => 
     const parsed = JSON.parse(text);
     if (!Array.isArray(parsed.tasks)) throw new Error("invalid file");
     if (!confirm("Replace current tasks with this backup?")) return;
-    state = { ...parsed, settings: { resetMinutes: 0, ...parsed.settings } };
+    state = { ...parsed, settings: { resetMinutes: 0, ...parsed.settings, introSeen: true } };
     saveData(state);
     render();
   } catch {
@@ -465,4 +467,42 @@ document.getElementById("import-input").addEventListener("change", async (e) => 
   }
 });
 
+let introReturnFocus = null;
+
+function isIntroOpen() {
+  return !document.getElementById("intro-backdrop").hidden;
+}
+
+function showIntro() {
+  introReturnFocus = document.activeElement;
+  document.getElementById("intro-backdrop").hidden = false;
+  document.getElementById("intro-dismiss").focus();
+}
+
+function dismissIntro() {
+  document.getElementById("intro-backdrop").hidden = true;
+  if (!state.settings.introSeen) {
+    state.settings.introSeen = true;
+    saveData(state);
+  }
+  if (introReturnFocus && introReturnFocus !== document.body) introReturnFocus.focus();
+  introReturnFocus = null;
+}
+
+document.getElementById("help-button").addEventListener("click", showIntro);
+document.getElementById("intro-dismiss").addEventListener("click", dismissIntro);
+document.getElementById("intro-backdrop").addEventListener("click", (e) => {
+  if (e.target.id === "intro-backdrop") dismissIntro();
+});
+document.addEventListener("keydown", (e) => {
+  if (!isIntroOpen()) return;
+  if (e.key === "Escape") dismissIntro();
+  // the dismiss button is the only focusable thing in the dialog, so keep focus on it
+  if (e.key === "Tab") {
+    e.preventDefault();
+    document.getElementById("intro-dismiss").focus();
+  }
+});
+
 render();
+if (!state.settings.introSeen) showIntro();

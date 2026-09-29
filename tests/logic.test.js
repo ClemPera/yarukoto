@@ -1,6 +1,8 @@
 import { loadApp, plain, STORAGE_KEY } from "./helpers/dom.js";
 
-const FALLBACK = { version: 1, tasks: [], settings: { resetMinutes: 0 } };
+// a brand new install has not seen the intro yet; anyone with saved data has
+const FRESH_INSTALL = { version: 1, tasks: [], settings: { resetMinutes: 0, introSeen: false } };
+const EXISTING_INSTALL = { version: 1, tasks: [], settings: { resetMinutes: 0, introSeen: true } };
 
 describe("uid", () => {
   it("returns a non-empty two-part string", () => {
@@ -85,19 +87,19 @@ describe("timeStrToMinutes", () => {
 describe("loadData", () => {
   it("falls back when nothing is stored", () => {
     const dom = loadApp();
-    expect(plain(dom.window.loadData())).toEqual(FALLBACK);
+    expect(plain(dom.window.loadData())).toEqual(FRESH_INSTALL);
   });
 
-  it("falls back on corrupt raw data", () => {
+  it("falls back on corrupt raw data, without treating it as a new install", () => {
     const dom = loadApp({ storage: "{oops" });
-    expect(plain(dom.window.loadData())).toEqual(FALLBACK);
+    expect(plain(dom.window.loadData())).toEqual(EXISTING_INSTALL);
   });
 
   it("defaults settings when stored data omits them", () => {
     const dom = loadApp({ storage: { tasks: [{ id: "a" }] } });
     const data = plain(dom.window.loadData());
     expect(data.tasks).toEqual([{ id: "a" }]);
-    expect(data.settings).toEqual({ resetMinutes: 0 });
+    expect(data.settings).toEqual({ resetMinutes: 0, introSeen: true });
   });
 
   it("preserves a stored resetMinutes", () => {
