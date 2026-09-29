@@ -53,6 +53,7 @@
         import
         <input type="file" id="import-input" accept="application/json" hidden>
       </label>
+      <button type="button" class="link-button" id="help-button">help</button>
       <a class="link-button" href="https://github.com/ClemPera/yarukoto" target="_blank" rel="noopener noreferrer">github</a>
     </footer>
 
@@ -71,6 +72,33 @@
       <p class="empty-note" id="history-empty" hidden>Nothing completed yet.</p>
     </section>
   </main>
+
+  <div class="modal-backdrop" id="intro-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="intro-title">
+      <h2 class="modal-title" id="intro-title"><span class="logo-mark" aria-hidden="true"></span>Welcome to Yarukoto</h2>
+      <p class="modal-lead">A small list for the things you do. That's all there is to it:</p>
+      <ul class="intro-list">
+        <li>
+          <span class="intro-icon intro-icon-daily" aria-hidden="true"></span>
+          <p><strong>Daily</strong> is for habits. They come back unchecked every day.</p>
+        </li>
+        <li>
+          <span class="intro-icon intro-icon-today" aria-hidden="true"></span>
+          <p><strong>Just today</strong> is for one-offs. Not done? They wait for you.</p>
+        </li>
+        <li>
+          <span class="intro-icon intro-icon-priority" aria-hidden="true">&uarr;&nbsp;=&nbsp;&darr;</span>
+          <p>Tap the mark on a task to change its <strong>priority</strong>.</p>
+        </li>
+        <li>
+          <span class="intro-icon intro-icon-local" aria-hidden="true">&#8962;</span>
+          <p><strong>Private.</strong> Everything stays in this browser. Export to back it up.</p>
+        </li>
+      </ul>
+      <button type="button" class="modal-primary" id="intro-dismiss">Got it</button>
+      <p class="modal-hint">You can open this again from "help" at the bottom.</p>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>
