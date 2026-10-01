@@ -57,42 +57,23 @@ describe("addTask", () => {
   });
 });
 
-describe("cyclePriority", () => {
-  it("cycles normal to high to low and back, persisting each step", () => {
+describe("setPriority", () => {
+  it("sets the chosen priority directly and persists it", () => {
     const dom = loadApp();
-    dom.window.addTask("Cycle", "daily");
+    dom.window.addTask("Pick", "daily");
     const id = plain(getState(dom)).tasks[0].id;
     const priority = () => plain(getState(dom)).tasks[0].priority;
 
     expect(priority()).toBe("normal");
-    dom.window.cyclePriority(id);
-    expect(priority()).toBe("high");
-    expect(persisted(dom)).toEqual(plain(getState(dom)));
-    dom.window.cyclePriority(id);
+    dom.window.setPriority(id, "low");
     expect(priority()).toBe("low");
     expect(persisted(dom)).toEqual(plain(getState(dom)));
-    dom.window.cyclePriority(id);
-    expect(priority()).toBe("normal");
-    expect(persisted(dom)).toEqual(plain(getState(dom)));
-  });
-
-  it("treats a missing or unknown priority as normal on the first cycle", () => {
-    const dom = loadApp();
-    setState(dom, {
-      version: 1,
-      tasks: [task({ id: "missing" }), task({ id: "null", priority: null })],
-      settings: { resetMinutes: 0 },
-    });
-
-    dom.window.cyclePriority("missing");
-    dom.window.cyclePriority("null");
-
-    const tasks = plain(getState(dom)).tasks;
-    expect(tasks.find((t) => t.id === "missing").priority).toBe("high");
-    expect(tasks.find((t) => t.id === "null").priority).toBe("high");
+    dom.window.setPriority(id, "high");
+    expect(priority()).toBe("high");
     expect(persisted(dom)).toEqual(plain(getState(dom)));
   });
 });
+
 
 describe("deleteTask", () => {
   it("removes only the matching id and persists", () => {

@@ -130,6 +130,11 @@ body {
   to { opacity: 0; transform: scale(0.96) translateX(6px); }
 }
 
+.priority-wrap {
+  position: relative;
+  flex: none;
+}
+
 .task-priority {
   flex: none;
   width: 1.5rem;
@@ -156,6 +161,52 @@ body {
   outline: 2px solid var(--focus-ring);
   outline-offset: 1px;
 }
+
+.priority-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 5;
+  min-width: 7.5rem;
+  margin-top: 0.2rem;
+  padding: 0.25rem;
+  background: var(--paper);
+  border: 1px solid var(--paper-line);
+  box-shadow: var(--page-shadow);
+}
+
+.priority-option {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.priority-option:hover { background: var(--page-bg); }
+.priority-option[aria-pressed="true"] { font-weight: 700; }
+
+.priority-option:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.priority-option-glyph {
+  width: 1rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--ink-soft);
+}
+
+.priority-option[data-priority="high"] .priority-option-glyph { color: var(--seal); }
+.priority-option[data-priority="low"] .priority-option-glyph { color: var(--priority-low); }
 
 .task-check {
   appearance: none;

@@ -2,7 +2,6 @@ const STORAGE_KEY = "yarukoto-data";
 const HISTORY_DAYS = 14;
 const PRIORITY_ORDER = { high: 0, normal: 1, low: 2 };
 const PRIORITY_LABEL = { high: "High", normal: "Normal", low: "Low" };
-const PRIORITY_CYCLE = { normal: "high", high: "low", low: "normal" };
 // same convention as Jira: up = high, down = low, equals = normal
 const PRIORITY_GLYPH = { high: "↑", normal: "=", low: "↓" };
 
@@ -111,11 +110,68 @@ function addTask(title, type) {
   render();
 }
 
-function cyclePriority(id) {
+function setPriority(id, priority) {
   const task = state.tasks.find((t) => t.id === id);
-  task.priority = PRIORITY_CYCLE[task.priority || "normal"];
+  task.priority = priority;
   saveData(state);
   render();
+}
+
+function closePriorityMenus() {
+  document.querySelectorAll(".priority-menu:not([hidden])").forEach((menu) => {
+    menu.hidden = true;
+    menu.previousElementSibling.setAttribute("aria-expanded", "false");
+  });
+}
+
+function makePriorityPicker(task) {
+  const priority = task.priority || "normal";
+
+  const wrap = document.createElement("div");
+  wrap.className = "priority-wrap";
+
+  const flag = document.createElement("button");
+  flag.type = "button";
+  flag.className = "task-priority";
+  flag.dataset.priority = priority;
+  flag.textContent = PRIORITY_GLYPH[priority];
+  flag.title = `${PRIORITY_LABEL[priority]} priority (click to change)`;
+  flag.setAttribute("aria-label", `Priority: ${PRIORITY_LABEL[priority]}. Click to change.`);
+  flag.setAttribute("aria-haspopup", "true");
+  flag.setAttribute("aria-expanded", "false");
+
+  const menu = document.createElement("div");
+  menu.className = "priority-menu";
+  menu.hidden = true;
+  Object.keys(PRIORITY_ORDER).forEach((level) => {
+    const option = document.createElement("button");
+    option.type = "button";
+    option.className = "priority-option";
+    option.dataset.priority = level;
+    option.setAttribute("aria-pressed", String(level === priority));
+    const glyph = document.createElement("span");
+    glyph.className = "priority-option-glyph";
+    glyph.textContent = PRIORITY_GLYPH[level];
+    option.append(glyph, document.createTextNode(PRIORITY_LABEL[level]));
+    option.addEventListener("click", () => setPriority(task.id, level));
+    menu.append(option);
+  });
+
+  flag.addEventListener("click", () => {
+    const open = menu.hidden;
+    closePriorityMenus();
+    menu.hidden = !open;
+    flag.setAttribute("aria-expanded", String(open));
+    if (open) menu.querySelector('[aria-pressed="true"]').focus();
+  });
+  menu.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    closePriorityMenus();
+    flag.focus();
+  });
+
+  wrap.append(flag, menu);
+  return wrap;
 }
 
 function sortByPriority(tasks) {
@@ -171,15 +227,7 @@ function makeTaskRow(task, { onToggle, onCheck }) {
   li.dataset.id = task.id;
   li.dataset.type = task.type;
 
-  const priority = task.priority || "normal";
-  const flag = document.createElement("button");
-  flag.type = "button";
-  flag.className = "task-priority";
-  flag.dataset.priority = priority;
-  flag.textContent = PRIORITY_GLYPH[priority];
-  flag.title = `${PRIORITY_LABEL[priority]} priority (click to change)`;
-  flag.setAttribute("aria-label", `Priority: ${PRIORITY_LABEL[priority]}. Click to change.`);
-  flag.addEventListener("click", () => cyclePriority(task.id));
+  const flag = makePriorityPicker(task);
 
   const check = document.createElement("input");
   check.type = "checkbox";
@@ -543,6 +591,9 @@ document.getElementById("help-button").addEventListener("click", showIntro);
 document.getElementById("intro-dismiss").addEventListener("click", dismissIntro);
 document.getElementById("intro-backdrop").addEventListener("click", (e) => {
   if (e.target.id === "intro-backdrop") dismissIntro();
+});
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".priority-wrap")) closePriorityMenus();
 });
 document.addEventListener("keydown", (e) => {
   if (!isIntroOpen()) return;
