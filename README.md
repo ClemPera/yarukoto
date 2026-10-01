@@ -12,7 +12,7 @@ A small local-first daily task tracker. No account, no server, no sync: everythi
 
 - **Daily** tasks are habits: they reappear every day and reset to unchecked at midnight by default, or at a time you choose in settings. A history view shows the last 14 days per habit.
 - **Today** tasks are one-off: if you don't finish one, it just stays on the list until you do, nothing is lost. 
-- **Priority**: click the small marker next to a task to cycle `=` Normal, `↑` High, `↓` Low. Tasks sort by priority within their list.
+- **Priority**: click the small marker next to a task and pick `↑` High, `=` Normal or `↓` Low. Tasks sort by priority within their list.
 - **Local only**: no backend, no accounts, nothing sent anywhere. Data stays in your browser via `localStorage`.
 - **Export / import**: back up your data to a JSON file, or restore from one.
 - **Dark mode**: follows your OS/browser color-scheme preference automatically.

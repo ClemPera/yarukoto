@@ -353,8 +353,8 @@ describe("checkbox wiring", () => {
   });
 });
 
-describe("priority flag", () => {
-  it("cycles normal to high to low and reorders the list", () => {
+describe("priority menu", () => {
+  function setup() {
     const dom = loadApp({
       storage: seedTasks(
         makeTask({ id: "a", title: "Alpha" }),
@@ -362,22 +362,74 @@ describe("priority flag", () => {
       ),
     });
     const doc = dom.window.document;
-    const ids = () => [...doc.querySelectorAll("#daily-list .task-row")].map((r) => r.dataset.id);
-    const flag = () => doc.querySelector('#daily-list .task-row[data-id="b"] .task-priority');
+    const row = () => doc.querySelector('#daily-list .task-row[data-id="b"]');
+    return {
+      dom,
+      doc,
+      ids: () => [...doc.querySelectorAll("#daily-list .task-row")].map((r) => r.dataset.id),
+      flag: () => row().querySelector(".task-priority"),
+      menu: () => row().querySelector(".priority-menu"),
+      option: (level) => row().querySelector(`.priority-option[data-priority="${level}"]`),
+    };
+  }
 
-    expect(ids()).toEqual(["a", "b"]);
-    expect(flag().dataset.priority).toBe("normal");
+  it("opens on click, marks the current priority and closes on a second click", () => {
+    const { flag, menu, option } = setup();
+
+    expect(menu().hidden).toBe(true);
+    click(flag());
+    expect(menu().hidden).toBe(false);
+    expect(flag().getAttribute("aria-expanded")).toBe("true");
+    expect(option("normal").getAttribute("aria-pressed")).toBe("true");
+    expect(option("low").getAttribute("aria-pressed")).toBe("false");
 
     click(flag());
-    expect(getState(dom).tasks.find((t) => t.id === "b").priority).toBe("high");
-    expect(flag().dataset.priority).toBe("high");
-    expect(flag().textContent).toBe("↑");
-    expect(ids()).toEqual(["b", "a"]);
+    expect(menu().hidden).toBe(true);
+    expect(flag().getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("goes from normal straight to low in one pick without passing through high", () => {
+    const { dom, flag, option, ids } = setup();
 
     click(flag());
+    click(option("low"));
+
     expect(getState(dom).tasks.find((t) => t.id === "b").priority).toBe("low");
     expect(flag().dataset.priority).toBe("low");
+    expect(flag().textContent).toBe("\u2193");
     expect(ids()).toEqual(["a", "b"]);
+  });
+
+  it("moves a task to the top when picking high", () => {
+    const { dom, flag, option, ids } = setup();
+
+    click(flag());
+    click(option("high"));
+
+    expect(getState(dom).tasks.find((t) => t.id === "b").priority).toBe("high");
+    expect(ids()).toEqual(["b", "a"]);
+  });
+
+  it("closes on an outside click and on Escape", () => {
+    const { doc, dom, flag, menu } = setup();
+
+    click(flag());
+    click(doc.body);
+    expect(menu().hidden).toBe(true);
+
+    click(flag());
+    menu().dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(menu().hidden).toBe(true);
+  });
+
+  it("keeps only one menu open at a time", () => {
+    const { doc, flag } = setup();
+    const otherFlag = doc.querySelector('#daily-list .task-row[data-id="a"] .task-priority');
+
+    click(flag());
+    click(otherFlag);
+
+    expect(doc.querySelectorAll(".priority-menu:not([hidden])")).toHaveLength(1);
   });
 });
 
