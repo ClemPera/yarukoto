@@ -110,6 +110,44 @@ describe("toggleDaily", () => {
   });
 });
 
+describe("toggleDailyForDate", () => {
+  it("adds a past date without affecting other tasks", () => {
+    const dom = loadApp();
+    dom.window.addTask("A", "daily");
+    dom.window.addTask("B", "daily");
+    const [a, b] = plain(getState(dom)).tasks;
+
+    dom.window.toggleDailyForDate(a.id, "2026-03-14");
+
+    const tasks = plain(getState(dom)).tasks;
+    expect(tasks.find((t) => t.id === a.id).completions).toEqual(["2026-03-14"]);
+    expect(tasks.find((t) => t.id === b.id).completions).toEqual([]);
+  });
+
+  it("removes the date on a second call and persists to localStorage", () => {
+    const dom = loadApp();
+    dom.window.addTask("A", "daily");
+    const id = plain(getState(dom)).tasks[0].id;
+
+    dom.window.toggleDailyForDate(id, "2026-03-14");
+    expect(plain(getState(dom)).tasks[0].completions).toEqual(["2026-03-14"]);
+    expect(persisted(dom)).toEqual(plain(getState(dom)));
+
+    dom.window.toggleDailyForDate(id, "2026-03-14");
+    expect(plain(getState(dom)).tasks[0].completions).toEqual([]);
+    expect(persisted(dom)).toEqual(plain(getState(dom)));
+  });
+
+  it("does nothing and does not throw for an unknown id", () => {
+    const dom = loadApp();
+    dom.window.addTask("A", "daily");
+    const before = plain(getState(dom));
+
+    expect(() => dom.window.toggleDailyForDate("missing", "2026-03-14")).not.toThrow();
+    expect(plain(getState(dom))).toEqual(before);
+  });
+});
+
 describe("toggleToday", () => {
   it("completes then uncompletes a task and persists", () => {
     const dom = loadApp();

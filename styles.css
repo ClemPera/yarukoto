@@ -669,11 +669,42 @@ body {
 }
 
 .habit-dot {
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  flex: none;
   width: 0.6rem;
   height: 0.6rem;
+  margin: 0;
+  padding: 0;
+  font: inherit;
   border-radius: 50%;
   border: 1px solid var(--paper-line);
   background: transparent;
+  cursor: pointer;
+  position: relative;
+}
+
+.habit-dot::after {
+  content: "";
+  position: absolute;
+  inset: -0.45rem;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.habit-dot:hover {
+  border-color: var(--ink-soft);
+  transform: scale(1.25);
+}
+
+.habit-dot:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .habit-dot { transition: transform 0.15s ease, border-color 0.15s ease; }
 }
 
 .habit-dot.done {

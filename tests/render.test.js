@@ -254,6 +254,43 @@ describe("daily history", () => {
     });
     expect(normal.querySelectorAll(".habit-dot.done").length).toBe(1);
   });
+
+  it("renders dots as buttons with type, aria-pressed and aria-label", () => {
+    const dom = seed([
+      makeTask("h", "High habit", "daily", "high", {
+        completions: ["2026-03-15"],
+      }),
+      makeTask("n", "Normal habit", "daily", "normal"),
+    ]);
+    const doc = dom.window.document;
+    const wrappers = doc.querySelectorAll("#history-daily .habit-history");
+    expect(wrappers.length).toBe(2);
+
+    const days = Array.from({ length: 14 }, (_, i) => localDateStr(i - 13));
+
+    const [high, normal] = wrappers;
+    const highDots = high.querySelectorAll(".habit-dot");
+    const normalDots = normal.querySelectorAll(".habit-dot");
+    expect(highDots.length).toBe(14);
+    expect(normalDots.length).toBe(14);
+
+    Array.from(highDots).forEach((dot, i) => {
+      expect(dot.tagName).toBe("BUTTON");
+      expect(dot.type).toBe("button");
+      const done = ["2026-03-15"].includes(days[i]);
+      expect(dot.getAttribute("aria-pressed")).toBe(String(done));
+      expect(dot.getAttribute("aria-label")).toContain(days[i]);
+    });
+    const doneDot = high.querySelector('.habit-dot[title="2026-03-15"]');
+    expect(doneDot.getAttribute("aria-label")).toBe('Unmark "High habit" done for 2026-03-15');
+
+    Array.from(normalDots).forEach((dot, i) => {
+      expect(dot.tagName).toBe("BUTTON");
+      expect(dot.type).toBe("button");
+      expect(dot.getAttribute("aria-pressed")).toBe("false");
+      expect(dot.getAttribute("aria-label")).toBe(`Mark "Normal habit" done for ${days[i]}`);
+    });
+  });
 });
 
 describe("completed history list", () => {

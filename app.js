@@ -186,14 +186,18 @@ function deleteTask(id) {
   render();
 }
 
-function toggleDaily(id) {
+function toggleDailyForDate(id, dateStr) {
   const task = state.tasks.find((t) => t.id === id);
-  const today = todayStr();
-  const idx = task.completions.indexOf(today);
-  if (idx === -1) task.completions.push(today);
+  if (!task) return;
+  const idx = task.completions.indexOf(dateStr);
+  if (idx === -1) task.completions.push(dateStr);
   else task.completions.splice(idx, 1);
   saveData(state);
   render();
+}
+
+function toggleDaily(id) {
+  toggleDailyForDate(id, todayStr());
 }
 
 function toggleToday(id) {
@@ -430,9 +434,14 @@ function renderHistory(dailyTasks) {
     const dots = document.createElement("div");
     dots.className = "habit-dots";
     days.forEach((day) => {
-      const dot = document.createElement("span");
-      dot.className = "habit-dot" + (task.completions.includes(day) ? " done" : "");
+      const done = task.completions.includes(day);
+      const dot = document.createElement("button");
+      dot.type = "button";
+      dot.className = "habit-dot" + (done ? " done" : "");
       dot.title = day;
+      dot.setAttribute("aria-pressed", String(done));
+      dot.setAttribute("aria-label", done ? `Unmark "${task.title}" done for ${day}` : `Mark "${task.title}" done for ${day}`);
+      dot.addEventListener("click", () => toggleDailyForDate(task.id, day));
       dots.append(dot);
     });
     wrap.append(title, dots);
