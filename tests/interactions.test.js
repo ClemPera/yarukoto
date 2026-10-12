@@ -495,6 +495,54 @@ describe("edit flow", () => {
   });
 });
 
+describe("history backfill", () => {
+  function pastDot(doc, day) {
+    return doc.querySelector(`#history-daily .habit-dot[title="${day}"]`);
+  }
+
+  it("clicking a past dot toggles state, persists and re-renders the dot", () => {
+    const dom = loadApp({
+      storage: seedTasks(makeTask({ id: "h", title: "Habit" })),
+    });
+    const doc = dom.window.document;
+
+    expect(pastDot(doc, "2026-03-14").classList.contains("done")).toBe(false);
+    click(pastDot(doc, "2026-03-14"));
+
+    expect(plain(getState(dom)).tasks[0].completions).toEqual(["2026-03-14"]);
+    expect(JSON.parse(dom.window.localStorage.getItem("yarukoto-data")).tasks[0].completions).toEqual([
+      "2026-03-14",
+    ]);
+    expect(pastDot(doc, "2026-03-14").classList.contains("done")).toBe(true);
+    expect(pastDot(doc, "2026-03-14").getAttribute("aria-pressed")).toBe("true");
+
+    click(pastDot(doc, "2026-03-14"));
+    expect(plain(getState(dom)).tasks[0].completions).toEqual([]);
+    expect(JSON.parse(dom.window.localStorage.getItem("yarukoto-data")).tasks[0].completions).toEqual(
+      []
+    );
+    expect(pastDot(doc, "2026-03-14").classList.contains("done")).toBe(false);
+    expect(pastDot(doc, "2026-03-14").getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("clicking the today dot updates the main daily checkbox too", () => {
+    const dom = loadApp({
+      storage: seedTasks(makeTask({ id: "h", title: "Habit" })),
+    });
+    const doc = dom.window.document;
+    const check = () => doc.querySelector('#daily-list .task-row[data-id="h"] .task-check');
+
+    expect(check().checked).toBe(false);
+    click(pastDot(doc, "2026-03-15"));
+    expect(plain(getState(dom)).tasks[0].completions).toEqual(["2026-03-15"]);
+    expect(check().checked).toBe(true);
+
+    click(pastDot(doc, "2026-03-15"));
+    expect(plain(getState(dom)).tasks[0].completions).toEqual([]);
+    expect(check().checked).toBe(false);
+  });
+});
+
 describe("persistence round-trip", () => {
   it("restores tasks and settings in a fresh load", () => {
     const dom = loadApp();
