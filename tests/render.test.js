@@ -29,6 +29,33 @@ function localDateStr(offset) {
   return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
+function localDate(offset) {
+  return new Date(2026, 2, 15 + offset);
+}
+
+// Same options as the app, so locale differences do not break the assertions.
+function historyDate(offset) {
+  const date = localDate(offset);
+  const options = { weekday: "short", month: "short", day: "numeric" };
+  if (date.getFullYear() !== 2026) options.year = "numeric";
+  return date.toLocaleDateString(undefined, options);
+}
+
+function fullHistoryDate(offset) {
+  return localDate(offset).toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function axisDate(offset) {
+  return localDate(offset).toLocaleDateString(undefined, { weekday: "short", day: "numeric" });
+}
+
+const HISTORY_OFFSETS = [-7, -6, -5, -4, -3, -2, -1];
+
 describe("date header", () => {
   it("shows the fixed clock's date in the locale format", () => {
     const dom = loadApp();
@@ -214,87 +241,133 @@ describe("all-done note", () => {
 });
 
 describe("daily history", () => {
-  it("renders 14 dots per daily task in priority order", () => {
+  it("renders seven dots per daily task for the week ending yesterday, in priority order", () => {
     const dom = seed([
       makeTask("h", "High habit", "daily", "high", {
         completions: ["2026-03-10", "2026-03-15", "2026-02-01"],
       }),
-      makeTask("n", "Normal habit", "daily", "normal", { completions: ["2026-03-02"] }),
+      makeTask("n", "Normal habit", "daily", "normal", { completions: ["2026-03-08"] }),
     ]);
     const doc = dom.window.document;
-    const wrappers = doc.querySelectorAll("#history-daily .habit-history");
-    expect(wrappers.length).toBe(2);
-
-    const days = Array.from({ length: 14 }, (_, i) => localDateStr(i - 13));
-    expect(days[0]).toBe("2026-03-02");
-    expect(days[13]).toBe("2026-03-15");
-
-    expect(Array.from(wrappers).map((w) => w.querySelector(".habit-history-title").textContent)).toEqual([
+    const wrappers = Array.from(doc.querySelectorAll("#history-daily .habit-history"));
+    expect(wrappers).toHaveLength(2);
+    expect(wrappers.map((w) => w.querySelector(".habit-history-title").textContent)).toEqual([
       "High habit",
       "Normal habit",
     ]);
 
-    const [high, normal] = wrappers;
-    const highDots = high.querySelectorAll(".habit-dot");
-    const normalDots = normal.querySelectorAll(".habit-dot");
-    expect(highDots.length).toBe(14);
-    expect(normalDots.length).toBe(14);
+    const days = HISTORY_OFFSETS.map(localDateStr);
+    expect(days[0]).toBe("2026-03-08");
+    expect(days[6]).toBe("2026-03-14");
 
-    Array.from(highDots).forEach((dot, i) => {
-      expect(dot.title).toBe(days[i]);
-      expect(dot.classList.contains("done")).toBe(
-        ["2026-03-10", "2026-03-15"].includes(days[i])
-      );
-    });
-    expect(high.querySelectorAll(".habit-dot.done").length).toBe(2);
+    const highDots = Array.from(wrappers[0].querySelectorAll(".habit-dot"));
+    const normalDots = Array.from(wrappers[1].querySelectorAll(".habit-dot"));
+    expect(highDots).toHaveLength(7);
+    expect(normalDots).toHaveLength(7);
 
-    Array.from(normalDots).forEach((dot, i) => {
-      expect(dot.title).toBe(days[i]);
-      expect(dot.classList.contains("done")).toBe(days[i] === "2026-03-02");
+    highDots.forEach((dot, i) => {
+      expect(dot.dataset.date).toBe(days[i]);
+      expect(dot.title).toBe(historyDate(HISTORY_OFFSETS[i]));
+      expect(dot.classList.contains("done")).toBe(days[i] === "2026-03-10");
     });
-    expect(normal.querySelectorAll(".habit-dot.done").length).toBe(1);
+    expect(wrappers[0].querySelectorAll(".habit-dot.done")).toHaveLength(1);
+
+    normalDots.forEach((dot, i) => {
+      expect(dot.classList.contains("done")).toBe(days[i] === "2026-03-08");
+    });
+    expect(wrappers[1].querySelectorAll(".habit-dot.done")).toHaveLength(1);
   });
 
-  it("renders dots as buttons with type, aria-pressed and aria-label", () => {
+  it("renders one seven-label axis above the dots with no today", () => {
     const dom = seed([
-      makeTask("h", "High habit", "daily", "high", {
-        completions: ["2026-03-15"],
-      }),
-      makeTask("n", "Normal habit", "daily", "normal"),
+      makeTask("d", "Habit", "daily", "normal"),
+      makeTask("e", "Other habit", "daily", "low"),
     ]);
     const doc = dom.window.document;
-    const wrappers = doc.querySelectorAll("#history-daily .habit-history");
-    expect(wrappers.length).toBe(2);
+    const axis = doc.querySelector("#history-daily .habit-axis");
 
-    const days = Array.from({ length: 14 }, (_, i) => localDateStr(i - 13));
+    expect(axis).not.toBeNull();
+    expect(doc.querySelectorAll("#history-daily .habit-axis")).toHaveLength(1);
+    expect(axis.getAttribute("aria-hidden")).toBe("true");
+    const labels = Array.from(axis.children).map((label) => label.textContent);
+    expect(labels).toEqual(HISTORY_OFFSETS.map(axisDate));
+    expect(axis.nextElementSibling.classList.contains("habit-history")).toBe(true);
+    expect(labels).not.toContain(axisDate(0));
+  });
 
-    const [high, normal] = wrappers;
-    const highDots = high.querySelectorAll(".habit-dot");
-    const normalDots = normal.querySelectorAll(".habit-dot");
-    expect(highDots.length).toBe(14);
-    expect(normalDots.length).toBe(14);
+  it("keeps today and the day before the window out of every habit's dots", () => {
+    const dom = seed([
+      makeTask("a", "A", "daily", "normal", { completions: ["2026-03-15"] }),
+      makeTask("b", "B", "daily", "normal"),
+    ]);
+    const doc = dom.window.document;
+    const dates = Array.from(doc.querySelectorAll("#history-daily .habit-dot")).map(
+      (dot) => dot.dataset.date
+    );
 
-    Array.from(highDots).forEach((dot, i) => {
-      expect(dot.tagName).toBe("BUTTON");
-      expect(dot.type).toBe("button");
-      const done = ["2026-03-15"].includes(days[i]);
-      expect(dot.getAttribute("aria-pressed")).toBe(String(done));
-      expect(dot.getAttribute("aria-label")).toContain(days[i]);
-    });
-    const doneDot = high.querySelector('.habit-dot[title="2026-03-15"]');
-    expect(doneDot.getAttribute("aria-label")).toBe('Unmark "High habit" done for 2026-03-15');
+    expect(dates).toHaveLength(14);
+    expect(dates).not.toContain("2026-03-15");
+    expect(dates).not.toContain("2026-03-07");
+    expect(doc.querySelectorAll('#history-daily .habit-dot[aria-pressed="true"]')).toHaveLength(0);
+  });
 
-    Array.from(normalDots).forEach((dot, i) => {
-      expect(dot.tagName).toBe("BUTTON");
-      expect(dot.type).toBe("button");
-      expect(dot.getAttribute("aria-pressed")).toBe("false");
-      expect(dot.getAttribute("aria-label")).toBe(`Mark "Normal habit" done for ${days[i]}`);
-    });
+  it("marks yesterday's dot done and ignores a completion made today", () => {
+    const dom = seed([
+      makeTask("h", "Habit", "daily", "normal", {
+        completions: ["2026-03-14", "2026-03-15"],
+      }),
+    ]);
+    const doc = dom.window.document;
+    const yesterday = doc.querySelector('#history-daily .habit-dot[data-date="2026-03-14"]');
+
+    expect(yesterday.classList.contains("done")).toBe(true);
+    expect(doc.querySelector('#history-daily .habit-dot[data-date="2026-03-15"]')).toBeNull();
+    expect(doc.querySelectorAll("#history-daily .habit-dot.done")).toHaveLength(1);
+  });
+
+  it("renders dots as buttons with friendly titles and full-date labels", () => {
+    const dom = seed([
+      makeTask("h", "Read 10 pages", "daily", "high", { completions: ["2026-03-14"] }),
+    ]);
+    const doc = dom.window.document;
+    const done = doc.querySelector('#history-daily .habit-dot[data-date="2026-03-14"]');
+    const undone = doc.querySelector('#history-daily .habit-dot[data-date="2026-03-13"]');
+
+    expect(done.tagName).toBe("BUTTON");
+    expect(done.type).toBe("button");
+    expect(done.getAttribute("aria-pressed")).toBe("true");
+    expect(done.title).toBe(historyDate(-1));
+    expect(done.getAttribute("aria-label")).toBe(
+      `Unmark Read 10 pages done for ${fullHistoryDate(-1)}`
+    );
+
+    expect(undone.getAttribute("aria-pressed")).toBe("false");
+    expect(undone.getAttribute("aria-label")).toBe(
+      `Mark Read 10 pages done for ${fullHistoryDate(-2)}`
+    );
+  });
+
+  it("hides the daily block with no daily habits but still renders Completed", () => {
+    const withDaily = seed([makeTask("d", "Habit", "daily", "normal")]);
+    const doc = withDaily.window.document;
+    expect(doc.getElementById("history-daily-block").hidden).toBe(false);
+    expect(doc.querySelector("#history-daily-block h3").textContent).toBe("Last 7 days");
+
+    const withoutDaily = seed([
+      makeTask("t", "Done earlier", "today", "normal", {
+        completed: true,
+        completions: ["2026-03-14"],
+      }),
+    ]);
+    const doc2 = withoutDaily.window.document;
+    expect(doc2.getElementById("history-daily-block").hidden).toBe(true);
+    expect(doc2.querySelector("#history-daily .habit-axis")).toBeNull();
+    expect(doc2.querySelectorAll("#history-today li")).toHaveLength(1);
   });
 });
 
 describe("completed history list", () => {
-  it("lists only completed today tasks, newest completion first", () => {
+  it("lists one-off tasks completed before today, newest first", () => {
     const dom = seed([
       makeTask("old", "Older done", "today", "normal", {
         completed: true,
@@ -302,7 +375,19 @@ describe("completed history list", () => {
       }),
       makeTask("new", "Newest done", "today", "normal", {
         completed: true,
+        completions: ["2026-03-14"],
+      }),
+      makeTask("multi", "Finished earlier", "today", "normal", {
+        completed: true,
+        completions: ["2026-03-09", "2026-03-12"],
+      }),
+      makeTask("today-done", "Done today", "today", "normal", {
+        completed: true,
         completions: ["2026-03-15"],
+      }),
+      makeTask("today-after-old", "Done today after an earlier day", "today", "normal", {
+        completed: true,
+        completions: ["2026-03-10", "2026-03-15"],
       }),
       makeTask("pending", "Still pending", "today", "normal"),
       makeTask("daily", "Daily done", "daily", "normal", { completions: ["2026-03-15"] }),
@@ -310,17 +395,66 @@ describe("completed history list", () => {
     const doc = dom.window.document;
     const items = Array.from(doc.querySelectorAll("#history-today li"));
 
-    expect(items.length).toBe(2);
-    expect(items[0].firstChild.textContent).toBe("Newest done");
-    expect(items[0].querySelector(".history-date").textContent).toBe("2026-03-15");
-    expect(items[1].firstChild.textContent).toBe("Older done");
-    expect(items[1].querySelector(".history-date").textContent).toBe("2026-03-10");
+    expect(items.map((li) => li.firstElementChild.textContent)).toEqual([
+      "Newest done",
+      "Finished earlier",
+      "Older done",
+    ]);
+
+    const expected = [
+      [-1, "2026-03-14"],
+      [-3, "2026-03-12"],
+      [-5, "2026-03-10"],
+    ];
+    items.forEach((li, i) => {
+      const date = li.querySelector(".history-date");
+      expect(date.tagName).toBe("TIME");
+      expect(date.dateTime).toBe(expected[i][1]);
+      expect(date.textContent).toBe(historyDate(expected[i][0]));
+    });
     expect(doc.getElementById("history-empty").hidden).toBe(true);
   });
 
-  it("shows the empty note when nothing is completed", () => {
-    const dom = seed([makeTask("d", "Daily", "daily", "normal")]);
-    expect(dom.window.document.getElementById("history-empty").hidden).toBe(false);
+  it("includes the year in visible dates from another year", () => {
+    const dom = seed([
+      makeTask("old", "Last year", "today", "normal", {
+        completed: true,
+        completions: ["2025-12-31"],
+      }),
+    ]);
+    const doc = dom.window.document;
+    const date = doc.querySelector("#history-today li .history-date");
+    const expected = new Date(2025, 11, 31).toLocaleDateString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+
+    expect(date.textContent).toBe(expected);
+    expect(date.textContent).toContain("2025");
+    expect(date.dateTime).toBe("2025-12-31");
+  });
+
+  it("shows the empty note when nothing was completed before today", () => {
+    const dom = seed([
+      makeTask("today-done", "Done today", "today", "normal", {
+        completed: true,
+        completions: ["2026-03-15"],
+      }),
+    ]);
+    const doc = dom.window.document;
+    expect(doc.querySelectorAll("#history-today li")).toHaveLength(0);
+    expect(doc.getElementById("history-empty").hidden).toBe(false);
+    expect(doc.getElementById("history-empty").textContent).toBe("Nothing completed before today.");
+
+    const filled = seed([
+      makeTask("earlier", "Done earlier", "today", "normal", {
+        completed: true,
+        completions: ["2026-03-14"],
+      }),
+    ]);
+    expect(filled.window.document.getElementById("history-empty").hidden).toBe(true);
   });
 });
 

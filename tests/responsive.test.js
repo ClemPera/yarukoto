@@ -77,9 +77,26 @@ describe("history", () => {
     expect(rule(".history-list li").gap).toBeTruthy();
   });
 
-  it("habit names wrap and the dot row can wrap on tiny screens", () => {
+  it("habit names wrap and the axis and dot rows share a seven-column grid", () => {
     expect(rule(".habit-history-title")["overflow-wrap"]).toBe("break-word");
-    expect(rule(".habit-dots")["flex-wrap"]).toBe("wrap");
+    for (const selector of [".habit-axis", ".habit-dots"]) {
+      const declarations = rule(selector);
+      expect(declarations.display, selector).toBe("grid");
+      expect(declarations["grid-template-columns"], selector).toBe(
+        "repeat(7, minmax(0, 1fr))"
+      );
+    }
+  });
+
+  it("dots are readable tap targets with a visible ring", () => {
+    const dot = rule(".habit-dot");
+    expect(dot.height).toBe("2rem");
+    expect(dot.border).toBe("none");
+
+    const ring = rule(".habit-dot::before");
+    expect(ring.width).toBe("0.9rem");
+    expect(ring.height).toBe("0.9rem");
+    expect(ring.border).toBe("1.5px solid var(--ink-soft)");
   });
 
   it("the completed list is built as title first, date last, as the CSS expects", () => {

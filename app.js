@@ -1,5 +1,5 @@
 const STORAGE_KEY = "yarukoto-data";
-const HISTORY_DAYS = 14;
+const HISTORY_DAYS = 7;
 const PRIORITY_ORDER = { high: 0, normal: 1, low: 2 };
 const PRIORITY_LABEL = { high: "High", normal: "Normal", low: "Low" };
 // same convention as Jira: up = high, down = low, equals = normal
@@ -18,6 +18,32 @@ function todayStr(offsetDays = 0) {
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
+}
+
+// split yyyy-mm-dd so the date is local midnight, unlike new Date(dateStr)
+function dateFromStr(dateStr) {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function formatHistoryDate(dateStr) {
+  const date = dateFromStr(dateStr);
+  const options = { weekday: "short", month: "short", day: "numeric" };
+  if (date.getFullYear() !== effectiveNow().getFullYear()) options.year = "numeric";
+  return date.toLocaleDateString(undefined, options);
+}
+
+function formatFullHistoryDate(dateStr) {
+  return dateFromStr(dateStr).toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatAxisDate(dateStr) {
+  return dateFromStr(dateStr).toLocaleDateString(undefined, { weekday: "short", day: "numeric" });
 }
 
 function loadData() {
@@ -421,9 +447,25 @@ function render() {
 }
 
 function renderHistory(dailyTasks) {
+  const dailyBlock = document.getElementById("history-daily-block");
   const dailyHistory = document.getElementById("history-daily");
+  dailyBlock.hidden = dailyTasks.length === 0;
   dailyHistory.innerHTML = "";
-  const days = Array.from({ length: HISTORY_DAYS }, (_, i) => todayStr(-(HISTORY_DAYS - 1 - i)));
+
+  // yesterday back to a week ago; today belongs to the main Daily list
+  const days = Array.from({ length: HISTORY_DAYS }, (_, i) => todayStr(i - HISTORY_DAYS));
+
+  if (dailyTasks.length > 0) {
+    const axis = document.createElement("div");
+    axis.className = "habit-axis";
+    axis.setAttribute("aria-hidden", "true");
+    days.forEach((day) => {
+      const label = document.createElement("span");
+      label.textContent = formatAxisDate(day);
+      axis.append(label);
+    });
+    dailyHistory.append(axis);
+  }
 
   dailyTasks.forEach((task) => {
     const wrap = document.createElement("div");
@@ -438,9 +480,13 @@ function renderHistory(dailyTasks) {
       const dot = document.createElement("button");
       dot.type = "button";
       dot.className = "habit-dot" + (done ? " done" : "");
-      dot.title = day;
+      dot.dataset.date = day;
+      dot.title = formatHistoryDate(day);
       dot.setAttribute("aria-pressed", String(done));
-      dot.setAttribute("aria-label", done ? `Unmark "${task.title}" done for ${day}` : `Mark "${task.title}" done for ${day}`);
+      dot.setAttribute(
+        "aria-label",
+        `${done ? "Unmark" : "Mark"} ${task.title} done for ${formatFullHistoryDate(day)}`
+      );
       dot.addEventListener("click", () => toggleDailyForDate(task.id, day));
       dots.append(dot);
     });
@@ -448,23 +494,29 @@ function renderHistory(dailyTasks) {
     dailyHistory.append(wrap);
   });
 
-  const completedToday = state.tasks
-    .filter((t) => t.type === "today" && t.completed)
-    .sort((a, b) => (b.completions.at(-1) || "").localeCompare(a.completions.at(-1) || ""));
+  const today = todayStr();
+  const completedEarlier = state.tasks
+    .filter((t) => {
+      if (t.type !== "today" || !t.completed) return false;
+      const last = t.completions?.at(-1);
+      return Boolean(last) && last !== today;
+    })
+    .sort((a, b) => b.completions.at(-1).localeCompare(a.completions.at(-1)));
 
   const historyList = document.getElementById("history-today");
   historyList.innerHTML = "";
-  completedToday.forEach((task) => {
+  completedEarlier.forEach((task) => {
     const li = document.createElement("li");
     const label = document.createElement("span");
     label.textContent = task.title;
-    const date = document.createElement("span");
+    const date = document.createElement("time");
     date.className = "history-date";
-    date.textContent = task.completions.at(-1) || "";
+    date.dateTime = task.completions.at(-1);
+    date.textContent = formatHistoryDate(date.dateTime);
     li.append(label, date);
     historyList.append(li);
   });
-  document.getElementById("history-empty").hidden = completedToday.length > 0;
+  document.getElementById("history-empty").hidden = completedEarlier.length > 0;
 }
 
 // how long the timer may sleep before re-reading the clock; timers can run late
