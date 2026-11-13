@@ -11,13 +11,24 @@ function uid() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function dateToStr(date) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function todayStr(offsetDays = 0) {
   const d = effectiveNow();
   d.setDate(d.getDate() + offsetDays);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+  return dateToStr(d);
+}
+
+// Monday-first start of the week containing date
+function mondayOf(date) {
+  const d = new Date(date);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d;
 }
 
 // split yyyy-mm-dd so the date is local midnight, unlike new Date(dateStr)
@@ -119,6 +130,7 @@ let editingId = null;
 let justAddedId = null;
 let renderedDay = null;
 let rolloverTimer = null;
+let activityYear = effectiveNow().getFullYear();
 
 function addTask(title, type) {
   const id = uid();
@@ -517,6 +529,86 @@ function renderHistory(dailyTasks) {
     historyList.append(li);
   });
   document.getElementById("history-empty").hidden = completedEarlier.length > 0;
+  renderActivityGraph(dailyTasks);
+}
+
+function renderActivityGraph(dailyTasks) {
+  const details = document.getElementById("activity-details");
+  details.hidden = dailyTasks.length === 0;
+  if (dailyTasks.length === 0) return;
+
+  const currentYear = effectiveNow().getFullYear();
+  document.getElementById("activity-year-label").textContent = activityYear;
+  document.getElementById("activity-next").disabled = activityYear >= currentYear;
+
+  const cutoff = activityYear === currentYear ? todayStr(-1) : `${activityYear}-12-31`;
+  const halves = document.getElementById("activity-halves");
+  halves.innerHTML = "";
+  halves.setAttribute(
+    "aria-label",
+    `Habit activity for ${activityYear}. Darker squares mean more habits completed.`
+  );
+
+  const blocks = [
+    { label: "Jan – Jun", startMonth: 0, endMonth: 5 },
+    { label: "Jul – Dec", startMonth: 6, endMonth: 11 },
+  ];
+
+  blocks.forEach(({ label, startMonth, endMonth }) => {
+    const block = document.createElement("div");
+    block.className = "activity-half";
+
+    const heading = document.createElement("div");
+    heading.className = "activity-half-label";
+    heading.textContent = label;
+
+    const grid = document.createElement("div");
+    grid.className = "activity-grid";
+    // the label column and each week column both fill seven rows, Monday first
+    ["Mon", "", "Wed", "", "Fri", "", ""].forEach((name) => {
+      const weekday = document.createElement("span");
+      weekday.className = "activity-weekday";
+      weekday.textContent = name;
+      grid.append(weekday);
+    });
+
+    const halfStart = `${activityYear}-${String(startMonth + 1).padStart(2, "0")}-01`;
+    const halfEnd = dateToStr(new Date(activityYear, endMonth + 1, 0));
+    const lastWeek = mondayOf(dateFromStr(halfEnd));
+    const week = mondayOf(dateFromStr(halfStart));
+
+    while (week <= lastWeek) {
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(week);
+        date.setDate(week.getDate() + i);
+        const dateStr = dateToStr(date);
+        const cell = document.createElement("span");
+        cell.className = "activity-cell";
+
+        if (dateStr < halfStart || dateStr > halfEnd || dateStr > cutoff) {
+          cell.classList.add("is-out");
+        } else {
+          cell.dataset.date = dateStr;
+          const existing = dailyTasks.filter((t) => t.createdAt <= dateStr);
+          if (existing.length === 0) {
+            cell.classList.add("level-0");
+            cell.title = `${formatFullHistoryDate(dateStr)}: no habits`;
+          } else {
+            const done = existing.filter((t) => t.completions.includes(dateStr)).length;
+            const level = done === 0 ? 0 : Math.ceil((done / existing.length) * 4);
+            const noun = existing.length === 1 ? "habit" : "habits";
+            cell.classList.add(`level-${level}`);
+            cell.title = `${formatFullHistoryDate(dateStr)}: ${done} of ${existing.length} ${noun}`;
+          }
+        }
+        grid.append(cell);
+      }
+      week.setDate(week.getDate() + 7);
+    }
+
+    block.append(heading, grid);
+    halves.append(block);
+  });
 }
 
 // how long the timer may sleep before re-reading the clock; timers can run late
@@ -580,6 +672,16 @@ document.getElementById("history-toggle").addEventListener("click", (e) => {
   const open = panel.hidden;
   panel.hidden = !open;
   e.target.setAttribute("aria-expanded", String(open));
+});
+
+document.getElementById("activity-prev").addEventListener("click", () => {
+  activityYear -= 1;
+  render();
+});
+
+document.getElementById("activity-next").addEventListener("click", () => {
+  activityYear = Math.min(activityYear + 1, effectiveNow().getFullYear());
+  render();
 });
 
 document.getElementById("settings-toggle").addEventListener("click", (e) => {

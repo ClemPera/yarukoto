@@ -70,6 +70,24 @@
         <h3>Last 7 days</h3>
         <div id="history-daily"></div>
       </div>
+      <details class="activity-details" id="activity-details" hidden>
+        <summary>Activity graph</summary>
+        <div class="activity-year">
+          <button type="button" class="activity-arrow" id="activity-prev" aria-label="Previous year">&lsaquo;</button>
+          <span class="activity-year-label" id="activity-year-label" aria-live="polite"></span>
+          <button type="button" class="activity-arrow" id="activity-next" aria-label="Next year">&rsaquo;</button>
+        </div>
+        <div class="activity-halves" id="activity-halves" role="img"></div>
+        <div class="activity-legend" aria-hidden="true">
+          <span>Less</span>
+          <span class="activity-swatch level-0"></span>
+          <span class="activity-swatch level-1"></span>
+          <span class="activity-swatch level-2"></span>
+          <span class="activity-swatch level-3"></span>
+          <span class="activity-swatch level-4"></span>
+          <span>More</span>
+        </div>
+      </details>
       <h3>Completed</h3>
       <ul class="history-list" id="history-today"></ul>
       <p class="empty-note" id="history-empty" hidden>Nothing completed before today.</p>

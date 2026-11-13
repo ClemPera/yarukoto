@@ -764,6 +764,120 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.activity-details {
+  margin-bottom: 0.9rem;
+}
+
+.activity-details summary {
+  cursor: pointer;
+  font-family: "Shippori Mincho", serif;
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+}
+
+.activity-year {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.activity-arrow {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0.15rem 0.4rem;
+  cursor: pointer;
+}
+
+.activity-arrow:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.activity-arrow:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.activity-year-label {
+  min-width: 3.5ch;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.activity-half + .activity-half { margin-top: 0.7rem; }
+
+.activity-half-label {
+  margin-bottom: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+
+.activity-grid {
+  display: grid;
+  grid-template-columns: 1.5rem repeat(28, 0.45rem);
+  grid-template-rows: repeat(7, 0.45rem);
+  grid-auto-flow: column;
+  gap: 1px;
+}
+
+.activity-weekday {
+  font-size: 0.5rem;
+  line-height: 0.45rem;
+  color: var(--ink-soft);
+  text-align: right;
+  padding-right: 0.15rem;
+  white-space: nowrap;
+}
+
+.activity-cell {
+  border: 1px solid var(--paper-line);
+  border-radius: 2px;
+  background: transparent;
+}
+
+.activity-cell.is-out { visibility: hidden; }
+
+.activity-cell.level-1,
+.activity-cell.level-2,
+.activity-cell.level-3,
+.activity-cell.level-4,
+.activity-swatch.level-1,
+.activity-swatch.level-2,
+.activity-swatch.level-3,
+.activity-swatch.level-4 {
+  background: var(--daily-mark);
+  border-color: var(--daily-mark);
+}
+
+.activity-cell.level-1, .activity-swatch.level-1 { opacity: 0.25; }
+.activity-cell.level-2, .activity-swatch.level-2 { opacity: 0.45; }
+.activity-cell.level-3, .activity-swatch.level-3 { opacity: 0.7; }
+.activity-cell.level-4, .activity-swatch.level-4 { opacity: 1; }
+
+.activity-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.6rem;
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+}
+
+.activity-swatch {
+  width: 0.45rem;
+  height: 0.45rem;
+  border: 1px solid var(--paper-line);
+  border-radius: 2px;
+  background: transparent;
+}
+
 /* on phones, give the task titles as much of the width as possible */
 @media (max-width: 400px) {
   body { padding: 1.25rem 0.75rem; }

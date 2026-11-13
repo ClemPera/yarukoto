@@ -125,6 +125,21 @@ describe("history", () => {
   });
 });
 
+describe("activity graph", () => {
+  it("uses a label column plus 28 narrow week columns inside the card", () => {
+    const grid = rule(".activity-grid");
+    expect(grid.display).toBe("grid");
+    expect(grid["grid-template-columns"]).toBe("1.5rem repeat(28, 0.45rem)");
+    expect(grid["grid-template-rows"]).toBe("repeat(7, 0.45rem)");
+    expect(grid["grid-auto-flow"]).toBe("column");
+    expect(grid.gap).toBe("1px");
+  });
+
+  it("keeps padding and future cells in the grid but invisible", () => {
+    expect(rule(".activity-cell.is-out").visibility).toBe("hidden");
+  });
+});
+
 describe("footer", () => {
   it("wraps onto more rows instead of running past the card", () => {
     expect(rule(".page-footer")["flex-wrap"]).toBe("wrap");
