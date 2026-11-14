@@ -497,7 +497,7 @@ describe("edit flow", () => {
 
 describe("history backfill", () => {
   function pastDot(doc, day) {
-    return doc.querySelector(`#history-daily .habit-dot[title="${day}"]`);
+    return doc.querySelector(`#history-daily .habit-dot[data-date="${day}"]`);
   }
 
   it("clicking a past dot toggles state, persists and re-renders the dot", () => {
@@ -505,6 +505,7 @@ describe("history backfill", () => {
       storage: seedTasks(makeTask({ id: "h", title: "Habit" })),
     });
     const doc = dom.window.document;
+    const todayCheck = () => doc.querySelector('#daily-list .task-row[data-id="h"] .task-check');
 
     expect(pastDot(doc, "2026-03-14").classList.contains("done")).toBe(false);
     click(pastDot(doc, "2026-03-14"));
@@ -515,6 +516,7 @@ describe("history backfill", () => {
     ]);
     expect(pastDot(doc, "2026-03-14").classList.contains("done")).toBe(true);
     expect(pastDot(doc, "2026-03-14").getAttribute("aria-pressed")).toBe("true");
+    expect(todayCheck().checked).toBe(false);
 
     click(pastDot(doc, "2026-03-14"));
     expect(plain(getState(dom)).tasks[0].completions).toEqual([]);
@@ -525,19 +527,22 @@ describe("history backfill", () => {
     expect(pastDot(doc, "2026-03-14").getAttribute("aria-pressed")).toBe("false");
   });
 
-  it("clicking the today dot updates the main daily checkbox too", () => {
+  it("has no dot for today, while the main Daily checkbox still toggles today", () => {
     const dom = loadApp({
       storage: seedTasks(makeTask({ id: "h", title: "Habit" })),
     });
     const doc = dom.window.document;
     const check = () => doc.querySelector('#daily-list .task-row[data-id="h"] .task-check');
 
+    expect(pastDot(doc, "2026-03-15")).toBeNull();
     expect(check().checked).toBe(false);
-    click(pastDot(doc, "2026-03-15"));
+
+    toggleCheckbox(dom, "h");
     expect(plain(getState(dom)).tasks[0].completions).toEqual(["2026-03-15"]);
     expect(check().checked).toBe(true);
+    expect(pastDot(doc, "2026-03-15")).toBeNull();
 
-    click(pastDot(doc, "2026-03-15"));
+    toggleCheckbox(dom, "h");
     expect(plain(getState(dom)).tasks[0].completions).toEqual([]);
     expect(check().checked).toBe(false);
   });
