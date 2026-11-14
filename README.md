@@ -12,7 +12,7 @@ A small local-first daily task tracker. No account, no server, no sync: everythi
 
 - **Daily** tasks are habits: they reappear every day and reset to unchecked at midnight by default, or at a time you choose in settings. A history view shows the past seven days per habit and lists one-off tasks completed before today.
 - **Today** tasks are one-off: if you don't finish one, it just stays on the list until you do, nothing is lost. 
-- **Activity graph**: an optional, read-only yearly view of all daily habits, with previous/next year navigation. Darker squares mean more habits completed.
+- **Activity graph**: an optional, read-only month-by-month view of daily habits, with previous/next year navigation and a task filter. Pick one habit to see its done and not-done days, or all tasks to see your overall consistency. Hover a square for the exact date and which habits you completed.
 - **Priority**: click the small marker next to a task and pick `↑` High, `=` Normal or `↓` Low. Tasks sort by priority within their list.
 - **Local only**: no backend, no accounts, nothing sent anywhere. Data stays in your browser via `localStorage`.
 - **Export / import**: back up your data to a JSON file, or restore from one.

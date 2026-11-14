@@ -126,13 +126,55 @@ describe("history", () => {
 });
 
 describe("activity graph", () => {
-  it("uses a label column plus 28 narrow week columns inside the card", () => {
+  it("lays the months out in a fluid grid that wraps inside the card", () => {
+    const months = rule(".activity-months");
+    expect(months.display).toBe("grid");
+    expect(months["grid-template-columns"]).toBe("repeat(auto-fit, minmax(9rem, 1fr))");
+    expect(months["min-width"]).toBe("0");
+    expect(months.gap).toBe("1.2rem 1.25rem");
+  });
+
+  it("each month is a weekday label column plus equal week columns", () => {
     const grid = rule(".activity-grid");
     expect(grid.display).toBe("grid");
-    expect(grid["grid-template-columns"]).toBe("1.5rem repeat(28, 0.45rem)");
-    expect(grid["grid-template-rows"]).toBe("repeat(7, 0.45rem)");
+    expect(grid["grid-template-columns"]).toBe(
+      "minmax(2.2rem, auto) repeat(var(--activity-weeks, 5), minmax(0, 1fr))"
+    );
+    expect(grid["grid-template-rows"]).toBe("repeat(7, auto)");
     expect(grid["grid-auto-flow"]).toBe("column");
-    expect(grid.gap).toBe("1px");
+    expect(grid.gap).toBe("0.18rem");
+  });
+
+  it("sizes cells from their column so they grow without overflowing", () => {
+    const cell = rule(".activity-cell");
+    expect(cell.width).toBeUndefined();
+    expect(cell["min-width"]).toBe("0");
+    expect(cell["aspect-ratio"]).toBe("1");
+    expect(rule(".activity-month")["min-width"]).toBe("0");
+  });
+
+  it("keeps the filter select inside the card at 320px", () => {
+    const select = rule(".activity-filter select");
+    expect(select.flex).toBe("1");
+    expect(select["min-width"]).toBe("0");
+    expect(select.width).toBeUndefined();
+  });
+
+  it("has no fixed width that could overflow the card at 320px", () => {
+    const section = CSS.slice(CSS.indexOf(".activity-details {"), CSS.indexOf("/* on phones"));
+    const widths = [...section.matchAll(/(?:^|[;{\s])(?:min-|max-)?width:\s*([\d.]+)rem/g)].map(
+      (match) => Number(match[1])
+    );
+
+    expect(widths.length).toBeGreaterThan(0);
+    expect(widths.every((width) => width <= 16)).toBe(true);
+  });
+
+  it("uses larger labels, gaps, cells and swatches than the old graph", () => {
+    expect(parseFloat(rule(".activity-month-label")["font-size"])).toBeGreaterThan(0.75);
+    expect(parseFloat(rule(".activity-weekday")["font-size"])).toBeGreaterThan(0.5);
+    expect(parseFloat(rule(".activity-grid").gap)).toBeGreaterThan(0.0625);
+    expect(rule(".activity-swatch").width).toBe("0.8rem");
   });
 
   it("keeps padding and future cells in the grid but invisible", () => {

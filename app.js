@@ -57,6 +57,11 @@ function formatAxisDate(dateStr) {
   return dateFromStr(dateStr).toLocaleDateString(undefined, { weekday: "short", day: "numeric" });
 }
 
+// Monday-first short names in the user's locale; 2024-01-01 was a Monday
+const WEEKDAY_NAMES = Array.from({ length: 7 }, (_, i) =>
+  new Date(2024, 0, 1 + i).toLocaleDateString(undefined, { weekday: "short" })
+);
+
 function loadData() {
   const raw = localStorage.getItem(STORAGE_KEY);
   // only a brand new install (nothing saved yet) gets the intro on its own;
@@ -131,6 +136,8 @@ let justAddedId = null;
 let renderedDay = null;
 let rolloverTimer = null;
 let activityYear = effectiveNow().getFullYear();
+let activityTaskId = "all";
+let activityFilterSignature = null;
 
 function addTask(title, type) {
   const id = uid();
@@ -532,83 +539,149 @@ function renderHistory(dailyTasks) {
   renderActivityGraph(dailyTasks);
 }
 
+function activityCellInfo(dateStr, dailyTasks, selectedTask) {
+  const date = formatFullHistoryDate(dateStr);
+
+  if (selectedTask) {
+    const done = selectedTask.completions.includes(dateStr);
+    return {
+      level: done ? 4 : 0,
+      title: `${date}\n${selectedTask.title}: ${done ? "Done" : "Not done"}`,
+    };
+  }
+
+  const existing = dailyTasks.filter((t) => t.createdAt <= dateStr);
+  if (existing.length === 0) return { level: 0, title: `${date}\nNo habits yet` };
+
+  const done = existing.filter((t) => t.completions.includes(dateStr));
+  if (done.length === 0) return { level: 0, title: `${date}\nNo habits completed` };
+
+  return {
+    level: Math.ceil((done.length / existing.length) * 4),
+    title: [date, ...done.map((t) => t.title)].join("\n"),
+  };
+}
+
+// keep the select in the DOM across renders so choosing a task never loses focus
+function syncActivityFilter(dailyTasks) {
+  const select = document.getElementById("activity-task-filter");
+  const signature = dailyTasks.map((t) => `${t.id}:${t.title}`).join("\n");
+
+  if (signature !== activityFilterSignature) {
+    select.innerHTML = "";
+    const all = document.createElement("option");
+    all.value = "all";
+    all.textContent = "All tasks";
+    select.append(all);
+    dailyTasks.forEach((task) => {
+      const option = document.createElement("option");
+      option.value = task.id;
+      option.textContent = task.title;
+      select.append(option);
+    });
+    activityFilterSignature = signature;
+  }
+
+  const selected = dailyTasks.find((t) => t.id === activityTaskId);
+  if (!selected) activityTaskId = "all";
+  select.value = activityTaskId;
+  return selected || null;
+}
+
 function renderActivityGraph(dailyTasks) {
   const details = document.getElementById("activity-details");
+  const months = document.getElementById("activity-months");
   details.hidden = dailyTasks.length === 0;
-  if (dailyTasks.length === 0) return;
+  if (dailyTasks.length === 0) {
+    activityTaskId = "all";
+    months.innerHTML = "";
+    return;
+  }
 
   const currentYear = effectiveNow().getFullYear();
   document.getElementById("activity-year-label").textContent = activityYear;
   document.getElementById("activity-next").disabled = activityYear >= currentYear;
 
+  const selectedTask = syncActivityFilter(dailyTasks);
+  const isTaskView = Boolean(selectedTask);
+  document.getElementById("activity-legend-all").hidden = isTaskView;
+  document.getElementById("activity-legend-task").hidden = !isTaskView;
+
   const cutoff = activityYear === currentYear ? todayStr(-1) : `${activityYear}-12-31`;
-  const halves = document.getElementById("activity-halves");
-  halves.innerHTML = "";
-  halves.setAttribute(
+  const lastMonth = activityYear === currentYear ? effectiveNow().getMonth() : 11;
+  months.innerHTML = "";
+  months.setAttribute(
     "aria-label",
-    `Habit activity for ${activityYear}. Darker squares mean more habits completed.`
+    isTaskView
+      ? `Habit activity for ${activityYear}, ${selectedTask.title}. Filled squares mean it was done.`
+      : `Habit activity for ${activityYear}, all tasks. Darker squares mean more habits completed.`
   );
 
-  const blocks = [
-    { label: "Jan – Jun", startMonth: 0, endMonth: 5 },
-    { label: "Jul – Dec", startMonth: 6, endMonth: 11 },
-  ];
+  for (let month = 0; month <= lastMonth; month++) {
+    const first = new Date(activityYear, month, 1);
+    const last = new Date(activityYear, month + 1, 0);
+    const monthStart = dateToStr(first);
+    const monthEnd = dateToStr(last);
 
-  blocks.forEach(({ label, startMonth, endMonth }) => {
+    const weekStarts = [];
+    const week = mondayOf(first);
+    const lastWeek = mondayOf(last);
+    while (week <= lastWeek) {
+      weekStarts.push(new Date(week));
+      week.setDate(week.getDate() + 7);
+    }
+
     const block = document.createElement("div");
-    block.className = "activity-half";
+    block.className = "activity-month";
+    block.dataset.month = `${activityYear}-${String(month + 1).padStart(2, "0")}`;
 
     const heading = document.createElement("div");
-    heading.className = "activity-half-label";
-    heading.textContent = label;
+    heading.className = "activity-month-label";
+    heading.textContent = first.toLocaleDateString(undefined, { month: "long" });
 
     const grid = document.createElement("div");
     grid.className = "activity-grid";
-    // the label column and each week column both fill seven rows, Monday first
-    ["Mon", "", "Wed", "", "Fri", "", ""].forEach((name) => {
+    grid.style.setProperty("--activity-weeks", weekStarts.length);
+
+    WEEKDAY_NAMES.forEach((name) => {
       const weekday = document.createElement("span");
       weekday.className = "activity-weekday";
       weekday.textContent = name;
       grid.append(weekday);
     });
 
-    const halfStart = `${activityYear}-${String(startMonth + 1).padStart(2, "0")}-01`;
-    const halfEnd = dateToStr(new Date(activityYear, endMonth + 1, 0));
-    const lastWeek = mondayOf(dateFromStr(halfEnd));
-    const week = mondayOf(dateFromStr(halfStart));
-
-    while (week <= lastWeek) {
+    weekStarts.forEach((weekStart) => {
       for (let i = 0; i < 7; i++) {
-        const date = new Date(week);
-        date.setDate(week.getDate() + i);
+        const date = new Date(weekStart);
+        date.setDate(weekStart.getDate() + i);
         const dateStr = dateToStr(date);
         const cell = document.createElement("span");
         cell.className = "activity-cell";
 
-        if (dateStr < halfStart || dateStr > halfEnd || dateStr > cutoff) {
+        if (
+          dateStr < monthStart ||
+          dateStr > monthEnd ||
+          dateStr > cutoff ||
+          (selectedTask && dateStr < selectedTask.createdAt)
+        ) {
           cell.classList.add("is-out");
         } else {
+          const info = activityCellInfo(dateStr, dailyTasks, selectedTask);
           cell.dataset.date = dateStr;
-          const existing = dailyTasks.filter((t) => t.createdAt <= dateStr);
-          if (existing.length === 0) {
-            cell.classList.add("level-0");
-            cell.title = `${formatFullHistoryDate(dateStr)}: no habits`;
-          } else {
-            const done = existing.filter((t) => t.completions.includes(dateStr)).length;
-            const level = done === 0 ? 0 : Math.ceil((done / existing.length) * 4);
-            const noun = existing.length === 1 ? "habit" : "habits";
-            cell.classList.add(`level-${level}`);
-            cell.title = `${formatFullHistoryDate(dateStr)}: ${done} of ${existing.length} ${noun}`;
-          }
+          cell.title = info.title;
+          cell.classList.add(`level-${info.level}`);
         }
         grid.append(cell);
       }
-      week.setDate(week.getDate() + 7);
-    }
+    });
 
     block.append(heading, grid);
-    halves.append(block);
-  });
+    months.append(block);
+  }
+}
+
+function refreshActivityGraph() {
+  renderActivityGraph(sortByPriority(state.tasks.filter((t) => t.type === "daily")));
 }
 
 // how long the timer may sleep before re-reading the clock; timers can run late
@@ -676,12 +749,17 @@ document.getElementById("history-toggle").addEventListener("click", (e) => {
 
 document.getElementById("activity-prev").addEventListener("click", () => {
   activityYear -= 1;
-  render();
+  refreshActivityGraph();
 });
 
 document.getElementById("activity-next").addEventListener("click", () => {
   activityYear = Math.min(activityYear + 1, effectiveNow().getFullYear());
-  render();
+  refreshActivityGraph();
+});
+
+document.getElementById("activity-task-filter").addEventListener("change", (e) => {
+  activityTaskId = e.target.value;
+  refreshActivityGraph();
 });
 
 document.getElementById("settings-toggle").addEventListener("click", (e) => {
