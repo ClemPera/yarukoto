@@ -136,6 +136,7 @@ let justAddedId = null;
 let renderedDay = null;
 let rolloverTimer = null;
 let activityYear = effectiveNow().getFullYear();
+let activityMonth = effectiveNow().getMonth();
 let activityTaskId = "all";
 let activityFilterSignature = null;
 
@@ -598,90 +599,98 @@ function renderActivityGraph(dailyTasks) {
     return;
   }
 
-  const currentYear = effectiveNow().getFullYear();
-  document.getElementById("activity-year-label").textContent = activityYear;
-  document.getElementById("activity-next").disabled = activityYear >= currentYear;
+  const now = effectiveNow();
+  const currentIndex = now.getFullYear() * 12 + now.getMonth();
+  const selectedIndex = activityYear * 12 + activityMonth;
+  const first = new Date(activityYear, activityMonth, 1);
+  const last = new Date(activityYear, activityMonth + 1, 0);
+  const periodLabel = first.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+
+  document.getElementById("activity-period-label").textContent = periodLabel;
+  document.getElementById("activity-next").disabled = selectedIndex >= currentIndex;
 
   const selectedTask = syncActivityFilter(dailyTasks);
   const isTaskView = Boolean(selectedTask);
   document.getElementById("activity-legend-all").hidden = isTaskView;
   document.getElementById("activity-legend-task").hidden = !isTaskView;
 
-  const cutoff = activityYear === currentYear ? todayStr(-1) : `${activityYear}-12-31`;
-  const lastMonth = activityYear === currentYear ? effectiveNow().getMonth() : 11;
+  const monthStart = dateToStr(first);
+  const monthEnd = dateToStr(last);
+  const cutoff = selectedIndex >= currentIndex ? todayStr(-1) : monthEnd;
   months.innerHTML = "";
   months.setAttribute(
     "aria-label",
     isTaskView
-      ? `Habit activity for ${activityYear}, ${selectedTask.title}. Filled squares mean it was done.`
-      : `Habit activity for ${activityYear}, all tasks. Darker squares mean more habits completed.`
+      ? `Habit activity for ${periodLabel}, ${selectedTask.title}. Filled squares mean it was done.`
+      : `Habit activity for ${periodLabel}, all tasks. Darker squares mean more habits completed.`
   );
 
-  for (let month = 0; month <= lastMonth; month++) {
-    const first = new Date(activityYear, month, 1);
-    const last = new Date(activityYear, month + 1, 0);
-    const monthStart = dateToStr(first);
-    const monthEnd = dateToStr(last);
-
-    const weekStarts = [];
-    const week = mondayOf(first);
-    const lastWeek = mondayOf(last);
-    while (week <= lastWeek) {
-      weekStarts.push(new Date(week));
-      week.setDate(week.getDate() + 7);
-    }
-
-    const block = document.createElement("div");
-    block.className = "activity-month";
-    block.dataset.month = `${activityYear}-${String(month + 1).padStart(2, "0")}`;
-
-    const heading = document.createElement("div");
-    heading.className = "activity-month-label";
-    heading.textContent = first.toLocaleDateString(undefined, { month: "long" });
-
-    const grid = document.createElement("div");
-    grid.className = "activity-grid";
-    grid.style.setProperty("--activity-weeks", weekStarts.length);
-
-    WEEKDAY_NAMES.forEach((name) => {
-      const weekday = document.createElement("span");
-      weekday.className = "activity-weekday";
-      weekday.textContent = name;
-      grid.append(weekday);
-    });
-
-    weekStarts.forEach((weekStart) => {
-      for (let i = 0; i < 7; i++) {
-        const date = new Date(weekStart);
-        date.setDate(weekStart.getDate() + i);
-        const dateStr = dateToStr(date);
-        const cell = document.createElement("span");
-        cell.className = "activity-cell";
-
-        if (
-          dateStr < monthStart ||
-          dateStr > monthEnd ||
-          dateStr > cutoff ||
-          (selectedTask && dateStr < selectedTask.createdAt)
-        ) {
-          cell.classList.add("is-out");
-        } else {
-          const info = activityCellInfo(dateStr, dailyTasks, selectedTask);
-          cell.dataset.date = dateStr;
-          cell.title = info.title;
-          cell.classList.add(`level-${info.level}`);
-        }
-        grid.append(cell);
-      }
-    });
-
-    block.append(heading, grid);
-    months.append(block);
+  const weekStarts = [];
+  const week = mondayOf(first);
+  const lastWeek = mondayOf(last);
+  while (week <= lastWeek) {
+    weekStarts.push(new Date(week));
+    week.setDate(week.getDate() + 7);
   }
+
+  const block = document.createElement("div");
+  block.className = "activity-month";
+  block.dataset.month = `${activityYear}-${String(activityMonth + 1).padStart(2, "0")}`;
+
+  const grid = document.createElement("div");
+  grid.className = "activity-grid";
+  grid.style.setProperty("--activity-weeks", weekStarts.length);
+
+  WEEKDAY_NAMES.forEach((name) => {
+    const weekday = document.createElement("span");
+    weekday.className = "activity-weekday";
+    weekday.textContent = name;
+    grid.append(weekday);
+  });
+
+  weekStarts.forEach((weekStart) => {
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(weekStart);
+      date.setDate(weekStart.getDate() + i);
+      const dateStr = dateToStr(date);
+      const cell = document.createElement("span");
+      cell.className = "activity-cell";
+
+      if (
+        dateStr < monthStart ||
+        dateStr > monthEnd ||
+        dateStr > cutoff ||
+        (selectedTask && dateStr < selectedTask.createdAt)
+      ) {
+        cell.classList.add("is-out");
+      } else {
+        const info = activityCellInfo(dateStr, dailyTasks, selectedTask);
+        cell.dataset.date = dateStr;
+        cell.title = info.title;
+        cell.classList.add(`level-${info.level}`);
+      }
+      grid.append(cell);
+    }
+  });
+
+  block.append(grid);
+  months.append(block);
 }
 
 function refreshActivityGraph() {
   renderActivityGraph(sortByPriority(state.tasks.filter((t) => t.type === "daily")));
+}
+
+function stepActivityMonth(offset) {
+  const target = new Date(activityYear, activityMonth + offset, 1);
+  if (offset > 0) {
+    const now = effectiveNow();
+    const currentIndex = now.getFullYear() * 12 + now.getMonth();
+    if (target.getFullYear() * 12 + target.getMonth() > currentIndex) return;
+  }
+  activityYear = target.getFullYear();
+  activityMonth = target.getMonth();
+  refreshActivityGraph();
 }
 
 // how long the timer may sleep before re-reading the clock; timers can run late
@@ -748,13 +757,11 @@ document.getElementById("history-toggle").addEventListener("click", (e) => {
 });
 
 document.getElementById("activity-prev").addEventListener("click", () => {
-  activityYear -= 1;
-  refreshActivityGraph();
+  stepActivityMonth(-1);
 });
 
 document.getElementById("activity-next").addEventListener("click", () => {
-  activityYear = Math.min(activityYear + 1, effectiveNow().getFullYear());
-  refreshActivityGraph();
+  stepActivityMonth(1);
 });
 
 document.getElementById("activity-task-filter").addEventListener("change", (e) => {
