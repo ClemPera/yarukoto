@@ -135,8 +135,8 @@ describe("activity graph", () => {
     expect(parseFloat(months["max-width"])).toBeLessThanOrEqual(24);
   });
 
-  it("centers the month header between its arrows", () => {
-    const nav = rule(".activity-month-nav");
+  it("centers the period header between its arrows", () => {
+    const nav = rule(".activity-period-nav");
     expect(nav.display).toBe("flex");
     expect(nav["justify-content"]).toBe("center");
   });
@@ -165,6 +165,54 @@ describe("activity graph", () => {
     expect(select.flex).toBe("1");
     expect(select["min-width"]).toBe("0");
     expect(select.width).toBeUndefined();
+  });
+
+  it("keeps the filter and the Month/Year toggle in one wrapping row", () => {
+    const controls = rule(".activity-controls");
+    expect(controls.display).toBe("flex");
+    expect(controls["flex-wrap"]).toBe("wrap");
+    expect(controls["justify-content"]).toBe("space-between");
+    expect(controls["max-width"]).toBe("22rem");
+    expect(rule(".activity-filter").flex).toBe("1 1 9rem");
+    expect(rule(".activity-view-toggle").flex).toBe("none");
+    expect(rule(".activity-view-button")["font-size"]).toBe("0.78rem");
+  });
+
+  it("scrolls the year grid sideways inside its own container", () => {
+    const scroll = rule(".activity-year-scroll");
+    expect(scroll.width).toBe("100%");
+    expect(scroll["min-width"]).toBe("0");
+    expect(scroll["overflow-x"]).toBe("auto");
+    expect(rule(".activity-graph")["min-width"]).toBe("0");
+  });
+
+  it("keeps year columns readable and lets them share extra width", () => {
+    const grid = rule(".activity-year-grid");
+    expect(grid.display).toBe("grid");
+    expect(grid["grid-template-columns"]).toBe(
+      "2.4rem repeat(var(--year-weeks, 53), minmax(0.55rem, 1fr))"
+    );
+    expect(grid["grid-template-rows"]).toBe("auto repeat(7, auto)");
+    expect(grid["--year-gap"]).toBe("0.2rem");
+    expect(grid.gap).toBe("var(--year-gap)");
+  });
+
+  it("puts the month labels above their week spans and clips them", () => {
+    const label = rule(".activity-year-month");
+    expect(label["font-size"]).toBe("0.62rem");
+    expect(label["white-space"]).toBe("nowrap");
+    expect(label.overflow).toBe("hidden");
+    expect(label["text-overflow"]).toBe("ellipsis");
+  });
+
+  it("keeps the weekday labels fixed while the year scrolls", () => {
+    const labels = rule(".activity-year-weekdays");
+    expect(labels.position).toBe("sticky");
+    expect(labels.left).toBe("0");
+    expect(labels["grid-column"]).toBe("1 / -1");
+    expect(labels["grid-row"]).toBe("2 / span 7");
+    expect(labels.width).toBe("2.4rem");
+    expect(labels.background).toBe("var(--paper)");
   });
 
   it("has no fixed width or min-width that could overflow the card at 320px", () => {

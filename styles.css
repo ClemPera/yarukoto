@@ -775,18 +775,64 @@ body {
   color: var(--ink-soft);
 }
 
+.activity-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.6rem;
+  width: 100%;
+  max-width: 22rem;
+  margin: 0.75rem auto 0.15rem;
+}
+
 .activity-filter {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  width: 100%;
-  max-width: 22rem;
-  margin: 0.75rem auto 0.15rem;
+  flex: 1 1 9rem;
+  min-width: 0;
   font-size: 0.8rem;
   color: var(--ink-soft);
 }
 
 .activity-filter > span { flex: none; }
+
+.activity-view-toggle {
+  display: inline-flex;
+  flex: none;
+  border: 1px solid var(--paper-line);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.activity-view-button {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.78rem;
+  line-height: 1;
+  padding: 0.35rem 0.55rem;
+  cursor: pointer;
+}
+
+.activity-view-button + .activity-view-button {
+  border-left: 1px solid var(--paper-line);
+}
+
+.activity-view-button[aria-pressed="false"]:hover { color: var(--ink); }
+
+.activity-view-button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.activity-view-button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
 
 .activity-filter select {
   flex: 1;
@@ -805,7 +851,7 @@ body {
   outline-offset: 1px;
 }
 
-.activity-month-nav {
+.activity-period-nav {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -844,6 +890,11 @@ body {
   font-size: 1rem;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
+}
+
+.activity-graph {
+  width: 100%;
+  min-width: 0;
 }
 
 .activity-months {
@@ -893,6 +944,49 @@ body {
 }
 
 .activity-cell.is-out { visibility: hidden; }
+
+.activity-year-scroll {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: 0.3rem;
+}
+
+.activity-year-grid {
+  --year-gap: 0.2rem;
+  display: grid;
+  grid-template-columns: 2.4rem repeat(var(--year-weeks, 53), minmax(0.55rem, 1fr));
+  grid-template-rows: auto repeat(7, auto);
+  gap: var(--year-gap);
+  min-width: 0;
+}
+
+.activity-year-month {
+  font-size: 0.62rem;
+  line-height: 1.2;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-left: 0.05rem;
+}
+
+.activity-year-weekdays {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  grid-column: 1 / -1;
+  grid-row: 2 / span 7;
+  justify-self: start;
+  width: 2.4rem;
+  display: grid;
+  grid-template-rows: repeat(7, 1fr);
+  gap: var(--year-gap);
+  padding-right: 0.4rem;
+  background: var(--paper);
+  box-shadow: var(--year-gap) 0 0 var(--paper);
+}
 
 .activity-cell.level-1,
 .activity-cell.level-2,

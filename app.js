@@ -62,6 +62,11 @@ const WEEKDAY_NAMES = Array.from({ length: 7 }, (_, i) =>
   new Date(2024, 0, 1 + i).toLocaleDateString(undefined, { weekday: "short" })
 );
 
+// short month names in the user's locale, in calendar order
+const MONTH_NAMES = Array.from({ length: 12 }, (_, i) =>
+  new Date(2024, i, 1).toLocaleDateString(undefined, { month: "short" })
+);
+
 function loadData() {
   const raw = localStorage.getItem(STORAGE_KEY);
   // only a brand new install (nothing saved yet) gets the intro on its own;
@@ -137,6 +142,7 @@ let renderedDay = null;
 let rolloverTimer = null;
 let activityYear = effectiveNow().getFullYear();
 let activityMonth = effectiveNow().getMonth();
+let activityView = "month";
 let activityTaskId = "all";
 let activityFilterSignature = null;
 
@@ -591,14 +597,38 @@ function syncActivityFilter(dailyTasks) {
 
 function renderActivityGraph(dailyTasks) {
   const details = document.getElementById("activity-details");
-  const months = document.getElementById("activity-months");
+  const graph = document.getElementById("activity-graph");
   details.hidden = dailyTasks.length === 0;
   if (dailyTasks.length === 0) {
     activityTaskId = "all";
-    months.innerHTML = "";
+    graph.innerHTML = "";
     return;
   }
 
+  const selectedTask = syncActivityFilter(dailyTasks);
+  const isTaskView = Boolean(selectedTask);
+  document.getElementById("activity-legend-all").hidden = isTaskView;
+  document.getElementById("activity-legend-task").hidden = !isTaskView;
+  document.querySelectorAll(".activity-view-button").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.view === activityView));
+  });
+
+  const isYear = activityView === "year";
+  document.getElementById("activity-prev").setAttribute("aria-label", isYear ? "Previous year" : "Previous month");
+  document.getElementById("activity-next").setAttribute("aria-label", isYear ? "Next year" : "Next month");
+
+  // keep the year grid where the user scrolled when only the filter changes
+  const previousScroll = graph.querySelector(".activity-year-scroll")?.scrollLeft || 0;
+  graph.innerHTML = "";
+  if (isYear) {
+    renderActivityYear(graph, dailyTasks, selectedTask);
+    graph.querySelector(".activity-year-scroll").scrollLeft = previousScroll;
+  } else {
+    renderActivityMonth(graph, dailyTasks, selectedTask);
+  }
+}
+
+function renderActivityMonth(graph, dailyTasks, selectedTask) {
   const now = effectiveNow();
   const currentIndex = now.getFullYear() * 12 + now.getMonth();
   const selectedIndex = activityYear * 12 + activityMonth;
@@ -608,22 +638,16 @@ function renderActivityGraph(dailyTasks) {
 
   document.getElementById("activity-period-label").textContent = periodLabel;
   document.getElementById("activity-next").disabled = selectedIndex >= currentIndex;
-
-  const selectedTask = syncActivityFilter(dailyTasks);
-  const isTaskView = Boolean(selectedTask);
-  document.getElementById("activity-legend-all").hidden = isTaskView;
-  document.getElementById("activity-legend-task").hidden = !isTaskView;
+  graph.setAttribute(
+    "aria-label",
+    selectedTask
+      ? `Habit activity for ${periodLabel}, ${selectedTask.title}. Filled squares mean it was done.`
+      : `Habit activity for ${periodLabel}, all tasks. Darker squares mean more habits completed.`
+  );
 
   const monthStart = dateToStr(first);
   const monthEnd = dateToStr(last);
   const cutoff = selectedIndex >= currentIndex ? todayStr(-1) : monthEnd;
-  months.innerHTML = "";
-  months.setAttribute(
-    "aria-label",
-    isTaskView
-      ? `Habit activity for ${periodLabel}, ${selectedTask.title}. Filled squares mean it was done.`
-      : `Habit activity for ${periodLabel}, all tasks. Darker squares mean more habits completed.`
-  );
 
   const weekStarts = [];
   const week = mondayOf(first);
@@ -632,6 +656,9 @@ function renderActivityGraph(dailyTasks) {
     weekStarts.push(new Date(week));
     week.setDate(week.getDate() + 7);
   }
+
+  const months = document.createElement("div");
+  months.className = "activity-months";
 
   const block = document.createElement("div");
   block.className = "activity-month";
@@ -675,21 +702,127 @@ function renderActivityGraph(dailyTasks) {
 
   block.append(grid);
   months.append(block);
+  graph.append(months);
+}
+
+function renderActivityYear(graph, dailyTasks, selectedTask) {
+  const currentYear = effectiveNow().getFullYear();
+  const yearStart = dateToStr(new Date(activityYear, 0, 1));
+  const yearEnd = dateToStr(new Date(activityYear, 11, 31));
+  const cutoff = activityYear >= currentYear ? todayStr(-1) : yearEnd;
+
+  document.getElementById("activity-period-label").textContent = String(activityYear);
+  document.getElementById("activity-next").disabled = activityYear >= currentYear;
+  graph.setAttribute(
+    "aria-label",
+    selectedTask
+      ? `Habit activity for ${activityYear}, ${selectedTask.title}. Filled squares mean it was done.`
+      : `Habit activity for ${activityYear}, all tasks. Darker squares mean more habits completed.`
+  );
+
+  const weekStarts = [];
+  const firstWeek = mondayOf(new Date(activityYear, 0, 1));
+  const lastWeek = mondayOf(new Date(activityYear, 11, 31));
+  for (let week = new Date(firstWeek); week <= lastWeek; week.setDate(week.getDate() + 7)) {
+    weekStarts.push(new Date(week));
+  }
+  const weekIndex = new Map(weekStarts.map((week, index) => [dateToStr(week), index]));
+
+  const scroll = document.createElement("div");
+  scroll.className = "activity-year-scroll";
+
+  const grid = document.createElement("div");
+  grid.className = "activity-year-grid";
+  grid.dataset.year = String(activityYear);
+  grid.dataset.weeks = String(weekStarts.length);
+  grid.style.setProperty("--year-weeks", weekStarts.length);
+
+  const weekdays = document.createElement("div");
+  weekdays.className = "activity-year-weekdays";
+  WEEKDAY_NAMES.forEach((name) => {
+    const label = document.createElement("span");
+    label.className = "activity-weekday";
+    label.textContent = name;
+    weekdays.append(label);
+  });
+  grid.append(weekdays);
+
+  MONTH_NAMES.forEach((name, month) => {
+    const start = weekIndex.get(dateToStr(mondayOf(new Date(activityYear, month, 1))));
+    const end = weekIndex.get(dateToStr(mondayOf(new Date(activityYear, month + 1, 0))));
+    const label = document.createElement("span");
+    label.className = "activity-year-month";
+    label.textContent = name;
+    label.style.gridColumn = `${start + 2} / span ${end - start + 1}`;
+    label.style.gridRow = "1";
+    grid.append(label);
+  });
+
+  weekStarts.forEach((weekStart, week) => {
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(weekStart);
+      date.setDate(weekStart.getDate() + i);
+      const dateStr = dateToStr(date);
+      const cell = document.createElement("span");
+      cell.className = "activity-cell";
+      cell.style.gridColumn = String(week + 2);
+      cell.style.gridRow = String(i + 2);
+
+      if (
+        dateStr < yearStart ||
+        dateStr > yearEnd ||
+        dateStr > cutoff ||
+        (selectedTask && dateStr < selectedTask.createdAt)
+      ) {
+        cell.classList.add("is-out");
+      } else {
+        const info = activityCellInfo(dateStr, dailyTasks, selectedTask);
+        cell.dataset.date = dateStr;
+        cell.title = info.title;
+        cell.classList.add(`level-${info.level}`);
+      }
+      grid.append(cell);
+    }
+  });
+
+  scroll.append(grid);
+  graph.append(scroll);
 }
 
 function refreshActivityGraph() {
   renderActivityGraph(sortByPriority(state.tasks.filter((t) => t.type === "daily")));
 }
 
-function stepActivityMonth(offset) {
-  const target = new Date(activityYear, activityMonth + offset, 1);
-  if (offset > 0) {
+function setActivityView(view) {
+  if (view === activityView) return;
+  if (view === "month") {
     const now = effectiveNow();
-    const currentIndex = now.getFullYear() * 12 + now.getMonth();
-    if (target.getFullYear() * 12 + target.getMonth() > currentIndex) return;
+    if (activityYear > now.getFullYear()) {
+      activityYear = now.getFullYear();
+      activityMonth = now.getMonth();
+    } else if (activityYear === now.getFullYear() && activityMonth > now.getMonth()) {
+      activityMonth = now.getMonth();
+    }
   }
-  activityYear = target.getFullYear();
-  activityMonth = target.getMonth();
+  activityView = view;
+  refreshActivityGraph();
+}
+
+function stepActivityPeriod(offset) {
+  if (activityView === "year") {
+    const target = activityYear + offset;
+    if (offset > 0 && target > effectiveNow().getFullYear()) return;
+    activityYear = target;
+  } else {
+    const target = new Date(activityYear, activityMonth + offset, 1);
+    if (offset > 0) {
+      const now = effectiveNow();
+      const currentIndex = now.getFullYear() * 12 + now.getMonth();
+      if (target.getFullYear() * 12 + target.getMonth() > currentIndex) return;
+    }
+    activityYear = target.getFullYear();
+    activityMonth = target.getMonth();
+  }
   refreshActivityGraph();
 }
 
@@ -757,11 +890,17 @@ document.getElementById("history-toggle").addEventListener("click", (e) => {
 });
 
 document.getElementById("activity-prev").addEventListener("click", () => {
-  stepActivityMonth(-1);
+  stepActivityPeriod(-1);
 });
 
 document.getElementById("activity-next").addEventListener("click", () => {
-  stepActivityMonth(1);
+  stepActivityPeriod(1);
+});
+
+document.querySelectorAll(".activity-view-button").forEach((button) => {
+  button.addEventListener("click", () => {
+    setActivityView(button.dataset.view);
+  });
 });
 
 document.getElementById("activity-task-filter").addEventListener("change", (e) => {

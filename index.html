@@ -72,16 +72,22 @@
       </div>
       <details class="activity-details" id="activity-details" hidden>
         <summary>Activity graph</summary>
-        <label class="activity-filter" for="activity-task-filter">
-          <span>Show</span>
-          <select id="activity-task-filter" aria-controls="activity-months"></select>
-        </label>
-        <div class="activity-month-nav">
+        <div class="activity-controls">
+          <label class="activity-filter" for="activity-task-filter">
+            <span>Show</span>
+            <select id="activity-task-filter" aria-controls="activity-graph"></select>
+          </label>
+          <div class="activity-view-toggle" role="group" aria-label="Activity view">
+            <button type="button" class="activity-view-button" data-view="month" aria-pressed="true">Month</button>
+            <button type="button" class="activity-view-button" data-view="year" aria-pressed="false">Year</button>
+          </div>
+        </div>
+        <div class="activity-period-nav">
           <button type="button" class="activity-arrow" id="activity-prev" aria-label="Previous month">&lsaquo;</button>
           <span class="activity-period-label" id="activity-period-label" aria-live="polite"></span>
           <button type="button" class="activity-arrow" id="activity-next" aria-label="Next month">&rsaquo;</button>
         </div>
-        <div class="activity-months" id="activity-months" role="img"></div>
+        <div class="activity-graph" id="activity-graph" role="img"></div>
         <div class="activity-legend" id="activity-legend-all" aria-hidden="true">
           <span>Less</span>
           <span class="activity-swatch level-0"></span>
