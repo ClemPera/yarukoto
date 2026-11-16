@@ -872,6 +872,7 @@ function unlockActivityScroll() {
 function openActivity() {
   const toggle = document.getElementById("activity-toggle");
   if (toggle.hidden || isActivityOpen()) return;
+  closeFooterPanels();
   activityReturnFocus = toggle;
   document.getElementById("activity-dialog-backdrop").hidden = false;
   toggle.setAttribute("aria-expanded", "true");
@@ -993,12 +994,30 @@ document.getElementById("add-form").addEventListener("submit", (e) => {
   input.focus();
 });
 
-document.getElementById("history-toggle").addEventListener("click", (e) => {
-  const panel = document.getElementById("history-panel");
-  const open = panel.hidden;
-  panel.hidden = !open;
-  e.target.setAttribute("aria-expanded", String(open));
-});
+const FOOTER_PANELS = {
+  history: { panel: "history-panel", toggle: "history-toggle" },
+  settings: { panel: "settings-panel", toggle: "settings-toggle" },
+};
+
+function setFooterPanel(name, open) {
+  const { panel, toggle } = FOOTER_PANELS[name];
+  document.getElementById(panel).hidden = !open;
+  document.getElementById(toggle).setAttribute("aria-expanded", String(open));
+}
+
+function closeFooterPanels(except) {
+  Object.keys(FOOTER_PANELS).forEach((name) => {
+    if (name !== except) setFooterPanel(name, false);
+  });
+}
+
+function toggleFooterPanel(name) {
+  const open = document.getElementById(FOOTER_PANELS[name].panel).hidden;
+  if (open) closeFooterPanels(name);
+  setFooterPanel(name, open);
+}
+
+document.getElementById("history-toggle").addEventListener("click", () => toggleFooterPanel("history"));
 
 document.getElementById("activity-toggle").addEventListener("click", openActivity);
 
@@ -1069,12 +1088,7 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-document.getElementById("settings-toggle").addEventListener("click", (e) => {
-  const panel = document.getElementById("settings-panel");
-  const open = panel.hidden;
-  panel.hidden = !open;
-  e.target.setAttribute("aria-expanded", String(open));
-});
+document.getElementById("settings-toggle").addEventListener("click", () => toggleFooterPanel("settings"));
 
 document.getElementById("reset-time-input").addEventListener("change", (e) => {
   if (!e.target.value) return;
@@ -1120,6 +1134,7 @@ function isIntroOpen() {
 }
 
 function showIntro() {
+  closeFooterPanels();
   introReturnFocus = document.activeElement;
   document.getElementById("intro-backdrop").hidden = false;
   document.getElementById("intro-dismiss").focus();

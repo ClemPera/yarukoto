@@ -130,6 +130,25 @@ describe("dialog", () => {
     expect(doc.getElementById("activity-dialog-close").getAttribute("aria-label")).toBe("Close activity");
   });
 
+  it("closes an open history or settings panel when it opens", () => {
+    const dom = seed([makeTask("habit", "2026-01-01")]);
+    const doc = dom.window.document;
+
+    click(doc.getElementById("history-toggle"));
+    expect(doc.getElementById("history-panel").hidden).toBe(false);
+    click(doc.getElementById("settings-toggle"));
+    expect(doc.getElementById("history-panel").hidden).toBe(true);
+    expect(doc.getElementById("settings-panel").hidden).toBe(false);
+
+    open(doc);
+
+    expect(doc.getElementById("history-panel").hidden).toBe(true);
+    expect(doc.getElementById("settings-panel").hidden).toBe(true);
+    expect(doc.getElementById("history-toggle").getAttribute("aria-expanded")).toBe("false");
+    expect(doc.getElementById("settings-toggle").getAttribute("aria-expanded")).toBe("false");
+    expect(backdrop(doc).hidden).toBe(false);
+  });
+
   it("switches between Month and Year while keeping the filter and year", () => {
     const tasks = [
       makeTask("read", "2024-01-01", [], { title: "Read 10 pages" }),
