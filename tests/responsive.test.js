@@ -125,14 +125,28 @@ describe("history", () => {
   });
 });
 
-describe("activity graph", () => {
-  it("caps the single month so it does not stretch across a wide card", () => {
-    const months = rule(".activity-months");
-    expect(months.width).toBe("100%");
-    expect(months["max-width"]).toBe("22rem");
-    expect(months.margin).toBe("0 auto");
-    expect(months["min-width"]).toBe("0");
-    expect(parseFloat(months["max-width"])).toBeLessThanOrEqual(24);
+describe("activity dialog", () => {
+  it("opens in a wide dialog that stays inside the viewport", () => {
+    const dialog = rule(".activity-dialog");
+    expect(dialog.width).toBe("min(96vw, 72rem)");
+    expect(dialog["max-width"]).toBe("100%");
+    expect(dialog["min-width"]).toBe("0");
+    expect(rule(".activity-dialog-backdrop").padding).toBe("1.25rem");
+    expect(rule(".activity-dialog-head .modal-title")["font-size"]).toBe("1.55rem");
+  });
+
+  it("wraps the view toggle and filter instead of overflowing at 320px", () => {
+    const toolbar = rule(".activity-dialog-toolbar");
+    expect(toolbar.display).toBe("flex");
+    expect(toolbar["flex-wrap"]).toBe("wrap");
+    expect(toolbar["justify-content"]).toBe("space-between");
+    expect(rule(".activity-dialog-toolbar .activity-filter").flex).toBe("1 1 12rem");
+    expect(rule(".activity-filter").flex).toBe("1 1 9rem");
+    expect(rule(".activity-view-toggle").flex).toBe("none");
+    expect(rule(".activity-view-button")["font-size"]).toBe("0.78rem");
+    expect(rule(".activity-filter select").flex).toBe("1");
+    expect(rule(".activity-filter select")["min-width"]).toBe("0");
+    expect(rule(".activity-filter select").width).toBeUndefined();
   });
 
   it("centers the period header between its arrows", () => {
@@ -141,7 +155,7 @@ describe("activity graph", () => {
     expect(nav["justify-content"]).toBe("center");
   });
 
-  it("each month is a weekday label column plus equal week columns", () => {
+  it("keeps the month grid transposed with fluid week columns", () => {
     const grid = rule(".activity-grid");
     expect(grid.display).toBe("grid");
     expect(grid["grid-template-columns"]).toBe(
@@ -157,100 +171,47 @@ describe("activity graph", () => {
     expect(cell.width).toBeUndefined();
     expect(cell["min-width"]).toBe("0");
     expect(cell["aspect-ratio"]).toBe("1");
-    expect(rule(".activity-month")["min-width"]).toBe("0");
   });
 
-  it("keeps the filter select inside the card at 320px", () => {
-    const select = rule(".activity-filter select");
-    expect(select.flex).toBe("1");
-    expect(select["min-width"]).toBe("0");
-    expect(select.width).toBeUndefined();
-  });
+  it("fits the whole year in the dialog without a scroll wrapper", () => {
+    expect(CSS).not.toContain(".activity-year-scroll");
+    expect(CSS).not.toContain(".activity-year-grid-full");
 
-  it("keeps the filter, the Month/Year toggle, and the fullscreen button in one wrapping row", () => {
-    const controls = rule(".activity-controls");
-    expect(controls.display).toBe("flex");
-    expect(controls["flex-wrap"]).toBe("wrap");
-    expect(controls["justify-content"]).toBe("flex-end");
-    expect(controls["max-width"]).toBe("22rem");
-    expect(rule(".activity-filter").flex).toBe("1 1 9rem");
-    expect(rule(".activity-view-toggle").flex).toBe("none");
-    expect(rule(".activity-view-button")["font-size"]).toBe("0.78rem");
-    expect(rule(".activity-fullscreen-button").flex).toBe("none");
-    expect(rule(".activity-fullscreen-button")["font-size"]).toBe("0.78rem");
-  });
-
-  it("scrolls the year grid sideways inside its own container", () => {
-    const scroll = rule(".activity-year-scroll");
-    expect(scroll.width).toBe("100%");
-    expect(scroll["min-width"]).toBe("0");
-    expect(scroll["overflow-x"]).toBe("auto");
-    expect(rule(".activity-graph")["min-width"]).toBe("0");
-  });
-
-  it("keeps year columns readable and lets them share extra width", () => {
     const grid = rule(".activity-year-grid");
     expect(grid.display).toBe("grid");
+    expect(grid.width).toBe("100%");
     expect(grid["grid-template-columns"]).toBe(
-      "2.4rem repeat(var(--year-weeks, 53), minmax(0.55rem, 1fr))"
+      "2.4rem repeat(var(--year-weeks, 53), minmax(0, 1fr))"
     );
     expect(grid["grid-template-rows"]).toBe("auto repeat(7, auto)");
-    expect(grid["--year-gap"]).toBe("0.2rem");
+    expect(grid["--year-gap"]).toBe("0.3rem");
     expect(grid.gap).toBe("var(--year-gap)");
+    expect(grid["overflow-x"]).toBeUndefined();
+
+    const graph = rule(".activity-dialog-graph");
+    expect(graph.width).toBe("100%");
+    expect(graph["min-width"]).toBe("0");
+    expect(graph["overflow-x"]).toBeUndefined();
   });
 
   it("puts the month labels above their week spans and clips them", () => {
     const label = rule(".activity-year-month");
-    expect(label["font-size"]).toBe("0.62rem");
+    expect(label["font-size"]).toBe("0.8rem");
     expect(label["white-space"]).toBe("nowrap");
     expect(label.overflow).toBe("hidden");
     expect(label["text-overflow"]).toBe("ellipsis");
   });
 
-  it("keeps the weekday labels fixed while the year scrolls", () => {
+  it("keeps the weekday labels in their own fixed column", () => {
     const labels = rule(".activity-year-weekdays");
-    expect(labels.position).toBe("sticky");
-    expect(labels.left).toBe("0");
     expect(labels["grid-column"]).toBe("1 / -1");
     expect(labels["grid-row"]).toBe("2 / span 7");
     expect(labels.width).toBe("2.4rem");
-    expect(labels.background).toBe("var(--paper)");
+    expect(rule(".activity-year-grid .activity-weekday")["font-size"]).toBe("0.82rem");
   });
 
-  it("opens the year graph in a wide dialog that stays inside the viewport", () => {
-    const dialog = rule(".activity-fullscreen-dialog");
-    expect(dialog.width).toBe("min(96vw, 72rem)");
-    expect(dialog["max-width"]).toBe("100%");
-    expect(dialog["min-width"]).toBe("0");
-    expect(rule(".activity-fullscreen-backdrop").padding).toBe("1.25rem");
-    expect(rule(".activity-fullscreen-head .modal-title")["font-size"]).toBe("1.55rem");
-  });
-
-  it("fits the whole year in the dialog without a horizontal scroll container", () => {
-    const grid = rule(".activity-year-grid-full");
-    expect(grid.width).toBe("100%");
-    expect(grid["grid-template-columns"]).toBe(
-      "2.4rem repeat(var(--year-weeks, 53), minmax(0, 1fr))"
-    );
-    expect(grid["--year-gap"]).toBe("0.3rem");
-    expect(rule(".activity-year-grid").gap).toBe("var(--year-gap)");
-    expect(grid["overflow-x"]).toBeUndefined();
-    expect(rule(".activity-fullscreen-graph")["overflow-x"]).toBeUndefined();
-    expect(rule(".activity-fullscreen-graph")["min-width"]).toBe("0");
-    expect(rule(".activity-fullscreen-graph").width).toBe("100%");
-  });
-
-  it("scales the fullscreen labels above the compact year grid", () => {
-    expect(
-      parseFloat(rule(".activity-year-grid-full .activity-year-month")["font-size"])
-    ).toBeGreaterThan(parseFloat(rule(".activity-year-month")["font-size"]));
-    expect(
-      parseFloat(rule(".activity-year-grid-full .activity-weekday")["font-size"])
-    ).toBeGreaterThan(parseFloat(rule(".activity-weekday")["font-size"]));
-  });
-
-  it("has no fixed width or min-width that could overflow the card at 320px", () => {
-    const section = CSS.slice(CSS.indexOf(".activity-details {"), CSS.indexOf("/* on phones"));
+  it("has no fixed width or min-width that could overflow the dialog at 320px", () => {
+    const section = CSS.slice(CSS.indexOf(".activity-filter {"), CSS.indexOf("/* on phones"));
     const widths = [
       ...section.matchAll(/(?:^|[;{\s])(?:min-)?width:\s*([\d.]+)rem/g),
     ].map((match) => Number(match[1]));
@@ -259,7 +220,7 @@ describe("activity graph", () => {
     expect(widths.every((width) => width <= 16)).toBe(true);
   });
 
-  it("uses larger labels, gaps, cells and swatches than the old graph", () => {
+  it("uses readable labels, gaps, cells and swatches", () => {
     expect(parseFloat(rule(".activity-period-label")["font-size"])).toBeGreaterThan(0.75);
     expect(parseFloat(rule(".activity-weekday")["font-size"])).toBeGreaterThan(0.5);
     expect(parseFloat(rule(".activity-grid").gap)).toBeGreaterThan(0.0625);
@@ -284,7 +245,7 @@ describe("footer", () => {
     const dom = loadApp();
     const footer = dom.window.document.querySelector(".page-footer");
     const items = [...footer.children].map((el) => el.textContent.trim());
-    expect(items).toEqual(["history", "settings", "export", "import", "help", "github"]);
+    expect(items).toEqual(["history", "settings", "activity", "export", "import", "help", "github"]);
   });
 });
 
@@ -295,18 +256,19 @@ describe("phone widths", () => {
     expect(phoneRule(".task-row").gap).toBe("0.45rem");
   });
 
-  it("compacts the fullscreen dialog and year grid to fit 320px", () => {
-    expect(phoneRule(".activity-fullscreen-backdrop").padding).toBe("0.5rem");
-    expect(phoneRule(".activity-fullscreen-dialog").padding).toBe("0.9rem 0.85rem 0.85rem");
-    expect(phoneRule(".activity-fullscreen-head .modal-title")["font-size"]).toBe("1.2rem");
+  it("compacts the activity dialog and year grid to fit 320px", () => {
+    expect(phoneRule(".activity-dialog-backdrop").padding).toBe("0.5rem");
+    expect(phoneRule(".activity-dialog").padding).toBe("0.9rem 0.85rem 0.85rem");
+    expect(phoneRule(".activity-dialog-head .modal-title")["font-size"]).toBe("1.2rem");
+    expect(phoneRule(".activity-dialog-toolbar").gap).toBe("0.5rem 0.75rem");
 
-    const grid = phoneRule(".activity-year-grid-full");
+    const grid = phoneRule(".activity-year-grid");
     expect(grid["--year-gap"]).toBe("0.05rem");
     expect(grid["grid-template-columns"]).toBe(
       "1.7rem repeat(var(--year-weeks, 53), minmax(0, 1fr))"
     );
-    expect(phoneRule(".activity-year-grid-full .activity-year-weekdays").width).toBe("1.7rem");
-    expect(phoneRule(".activity-year-grid-full .activity-weekday")["font-size"]).toBe("0.6rem");
-    expect(phoneRule(".activity-year-grid-full .activity-year-month")["font-size"]).toBe("0.58rem");
+    expect(phoneRule(".activity-year-grid .activity-year-weekdays").width).toBe("1.7rem");
+    expect(phoneRule(".activity-year-grid .activity-weekday")["font-size"]).toBe("0.6rem");
+    expect(phoneRule(".activity-year-grid .activity-year-month")["font-size"]).toBe("0.58rem");
   });
 });

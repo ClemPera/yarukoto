@@ -142,11 +142,10 @@ let renderedDay = null;
 let rolloverTimer = null;
 let activityYear = effectiveNow().getFullYear();
 let activityMonth = effectiveNow().getMonth();
-let activityView = "month";
+let activityView = "year";
 let activityTaskId = "all";
 let activityFilterSignature = null;
-let activityFullscreenReturnFocus = null;
-let activityFullscreenPreviousOverflow = "";
+let activityReturnFocus = null;
 let activityScrollLock = null;
 
 function addTask(title, type) {
@@ -464,6 +463,7 @@ function render() {
   );
 
   renderHistory(dailyTasks);
+  refreshActivity();
 
   if (editingId) {
     const input = document.querySelector(".edit-form .edit-title-input");
@@ -546,7 +546,16 @@ function renderHistory(dailyTasks) {
     historyList.append(li);
   });
   document.getElementById("history-empty").hidden = completedEarlier.length > 0;
-  renderActivityGraph(dailyTasks);
+  updateActivityVisibility(dailyTasks);
+}
+
+function updateActivityVisibility(dailyTasks) {
+  const hasDailyTasks = dailyTasks.length > 0;
+  document.getElementById("activity-toggle").hidden = !hasDailyTasks;
+  if (hasDailyTasks) return;
+
+  activityTaskId = "all";
+  if (isActivityOpen()) closeActivity();
 }
 
 function activityCellInfo(dateStr, dailyTasks, selectedTask) {
@@ -572,96 +581,89 @@ function activityCellInfo(dateStr, dailyTasks, selectedTask) {
   };
 }
 
-// keep the selects in the DOM across renders so choosing a task never loses focus
-function syncActivityFilters(dailyTasks) {
-  const selects = [
-    document.getElementById("activity-task-filter"),
-    document.getElementById("activity-fullscreen-filter"),
-  ];
+// keep the select in the DOM across renders so choosing a task never loses focus
+function syncActivityFilter(dailyTasks) {
+  const select = document.getElementById("activity-filter");
   const signature = dailyTasks.map((t) => `${t.id}:${t.title}`).join("\n");
 
   if (signature !== activityFilterSignature) {
-    selects.forEach((select) => {
-      select.innerHTML = "";
-      const all = document.createElement("option");
-      all.value = "all";
-      all.textContent = "All tasks";
-      select.append(all);
-      dailyTasks.forEach((task) => {
-        const option = document.createElement("option");
-        option.value = task.id;
-        option.textContent = task.title;
-        select.append(option);
-      });
+    select.innerHTML = "";
+    const all = document.createElement("option");
+    all.value = "all";
+    all.textContent = "All tasks";
+    select.append(all);
+    dailyTasks.forEach((task) => {
+      const option = document.createElement("option");
+      option.value = task.id;
+      option.textContent = task.title;
+      select.append(option);
     });
     activityFilterSignature = signature;
   }
 
   const selected = dailyTasks.find((t) => t.id === activityTaskId);
   if (!selected) activityTaskId = "all";
-  selects.forEach((select) => {
-    select.value = activityTaskId;
-  });
+  select.value = activityTaskId;
   return selected || null;
 }
 
-function renderActivityGraph(dailyTasks) {
-  const details = document.getElementById("activity-details");
-  const graph = document.getElementById("activity-graph");
-  const fullscreenBackdrop = document.getElementById("activity-fullscreen-backdrop");
-  details.hidden = dailyTasks.length === 0;
-  if (dailyTasks.length === 0) {
-    activityTaskId = "all";
-    graph.innerHTML = "";
-    if (!fullscreenBackdrop.hidden) closeActivityFullscreen();
-    return;
-  }
+function activityPeriodName() {
+  if (activityView === "year") return String(activityYear);
+  return new Date(activityYear, activityMonth, 1).toLocaleDateString(undefined, {
+    month: "long",
+    year: "numeric",
+  });
+}
 
-  const selectedTask = syncActivityFilters(dailyTasks);
+function renderActivityPeriodLabel() {
+  const periodLabel = activityPeriodName();
+  document.getElementById("activity-period-label").textContent = periodLabel;
+
+  const now = effectiveNow();
+  const next = document.getElementById("activity-next");
+  if (activityView === "year") {
+    next.disabled = activityYear >= now.getFullYear();
+  } else {
+    const currentIndex = now.getFullYear() * 12 + now.getMonth();
+    next.disabled = activityYear * 12 + activityMonth >= currentIndex;
+  }
+  return periodLabel;
+}
+
+function renderActivity(dailyTasks, selectedTask) {
   const isTaskView = Boolean(selectedTask);
+  const isYear = activityView === "year";
+
   document.getElementById("activity-legend-all").hidden = isTaskView;
   document.getElementById("activity-legend-task").hidden = !isTaskView;
-  document.getElementById("activity-fullscreen-legend-all").hidden = isTaskView;
-  document.getElementById("activity-fullscreen-legend-task").hidden = !isTaskView;
   document.querySelectorAll(".activity-view-button").forEach((button) => {
     button.setAttribute("aria-pressed", String(button.dataset.view === activityView));
   });
-  document.getElementById("activity-fullscreen-button").hidden = activityView !== "year";
-
-  const isYear = activityView === "year";
   document.getElementById("activity-prev").setAttribute("aria-label", isYear ? "Previous year" : "Previous month");
   document.getElementById("activity-next").setAttribute("aria-label", isYear ? "Next year" : "Next month");
 
-  // keep the year grid where the user scrolled when only the filter changes
-  const previousScroll = graph.querySelector(".activity-year-scroll")?.scrollLeft || 0;
-  graph.innerHTML = "";
-  if (isYear) {
-    renderActivityYear(graph, dailyTasks, selectedTask);
-    graph.querySelector(".activity-year-scroll").scrollLeft = previousScroll;
-  } else {
-    renderActivityMonth(graph, dailyTasks, selectedTask);
-  }
-
-  if (!fullscreenBackdrop.hidden) renderActivityFullscreen(dailyTasks, selectedTask);
-}
-
-function renderActivityMonth(graph, dailyTasks, selectedTask) {
-  const now = effectiveNow();
-  const currentIndex = now.getFullYear() * 12 + now.getMonth();
-  const selectedIndex = activityYear * 12 + activityMonth;
-  const first = new Date(activityYear, activityMonth, 1);
-  const last = new Date(activityYear, activityMonth + 1, 0);
-  const periodLabel = first.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-
-  document.getElementById("activity-period-label").textContent = periodLabel;
-  document.getElementById("activity-next").disabled = selectedIndex >= currentIndex;
+  const periodLabel = renderActivityPeriodLabel();
+  const graph = document.getElementById("activity-graph");
   graph.setAttribute(
     "aria-label",
     selectedTask
       ? `Habit activity for ${periodLabel}, ${selectedTask.title}. Filled squares mean it was done.`
       : `Habit activity for ${periodLabel}, all tasks. Darker squares mean more habits completed.`
   );
+  graph.innerHTML = "";
+  graph.append(
+    isYear
+      ? buildActivityYearGrid(dailyTasks, selectedTask)
+      : buildActivityMonthGrid(dailyTasks, selectedTask)
+  );
+}
 
+function buildActivityMonthGrid(dailyTasks, selectedTask) {
+  const now = effectiveNow();
+  const currentIndex = now.getFullYear() * 12 + now.getMonth();
+  const selectedIndex = activityYear * 12 + activityMonth;
+  const first = new Date(activityYear, activityMonth, 1);
+  const last = new Date(activityYear, activityMonth + 1, 0);
   const monthStart = dateToStr(first);
   const monthEnd = dateToStr(last);
   const cutoff = selectedIndex >= currentIndex ? todayStr(-1) : monthEnd;
@@ -674,15 +676,9 @@ function renderActivityMonth(graph, dailyTasks, selectedTask) {
     week.setDate(week.getDate() + 7);
   }
 
-  const months = document.createElement("div");
-  months.className = "activity-months";
-
-  const block = document.createElement("div");
-  block.className = "activity-month";
-  block.dataset.month = `${activityYear}-${String(activityMonth + 1).padStart(2, "0")}`;
-
   const grid = document.createElement("div");
   grid.className = "activity-grid";
+  grid.dataset.month = monthStart.slice(0, 7);
   grid.style.setProperty("--activity-weeks", weekStarts.length);
 
   WEEKDAY_NAMES.forEach((name) => {
@@ -717,12 +713,10 @@ function renderActivityMonth(graph, dailyTasks, selectedTask) {
     }
   });
 
-  block.append(grid);
-  months.append(block);
-  graph.append(months);
+  return grid;
 }
 
-function buildActivityYearGrid(dailyTasks, selectedTask, fullscreen = false) {
+function buildActivityYearGrid(dailyTasks, selectedTask) {
   const currentYear = effectiveNow().getFullYear();
   const yearStart = dateToStr(new Date(activityYear, 0, 1));
   const yearEnd = dateToStr(new Date(activityYear, 11, 31));
@@ -737,7 +731,7 @@ function buildActivityYearGrid(dailyTasks, selectedTask, fullscreen = false) {
   const weekIndex = new Map(weekStarts.map((week, index) => [dateToStr(week), index]));
 
   const grid = document.createElement("div");
-  grid.className = fullscreen ? "activity-year-grid activity-year-grid-full" : "activity-year-grid";
+  grid.className = "activity-year-grid";
   grid.dataset.year = String(activityYear);
   grid.dataset.weeks = String(weekStarts.length);
   grid.style.setProperty("--year-weeks", weekStarts.length);
@@ -793,44 +787,14 @@ function buildActivityYearGrid(dailyTasks, selectedTask, fullscreen = false) {
   return grid;
 }
 
-function renderActivityYear(graph, dailyTasks, selectedTask) {
-  const currentYear = effectiveNow().getFullYear();
-  document.getElementById("activity-period-label").textContent = String(activityYear);
-  document.getElementById("activity-next").disabled = activityYear >= currentYear;
-  graph.setAttribute(
-    "aria-label",
-    selectedTask
-      ? `Habit activity for ${activityYear}, ${selectedTask.title}. Filled squares mean it was done.`
-      : `Habit activity for ${activityYear}, all tasks. Darker squares mean more habits completed.`
-  );
-
-  const scroll = document.createElement("div");
-  scroll.className = "activity-year-scroll";
-  scroll.append(buildActivityYearGrid(dailyTasks, selectedTask));
-  graph.append(scroll);
+function refreshActivity() {
+  const dailyTasks = sortByPriority(state.tasks.filter((t) => t.type === "daily"));
+  const selectedTask = syncActivityFilter(dailyTasks);
+  if (isActivityOpen()) renderActivity(dailyTasks, selectedTask);
 }
 
-function renderActivityFullscreen(dailyTasks, selectedTask) {
-  const graph = document.getElementById("activity-fullscreen-graph");
-  const currentYear = effectiveNow().getFullYear();
-  document.getElementById("activity-fullscreen-period-label").textContent = String(activityYear);
-  document.getElementById("activity-fullscreen-next").disabled = activityYear >= currentYear;
-  graph.setAttribute(
-    "aria-label",
-    selectedTask
-      ? `Habit activity for ${activityYear}, ${selectedTask.title}. Filled squares mean it was done.`
-      : `Habit activity for ${activityYear}, all tasks. Darker squares mean more habits completed.`
-  );
-  graph.innerHTML = "";
-  graph.append(buildActivityYearGrid(dailyTasks, selectedTask, true));
-}
-
-function refreshActivityGraph() {
-  renderActivityGraph(sortByPriority(state.tasks.filter((t) => t.type === "daily")));
-}
-
-function isActivityFullscreenOpen() {
-  return !document.getElementById("activity-fullscreen-backdrop").hidden;
+function isActivityOpen() {
+  return !document.getElementById("activity-dialog-backdrop").hidden;
 }
 
 function lockActivityScroll() {
@@ -845,37 +809,31 @@ function unlockActivityScroll() {
   activityScrollLock = null;
 }
 
-function openActivityFullscreen() {
-  if (activityView !== "year" || document.getElementById("activity-details").hidden) return;
-  const backdrop = document.getElementById("activity-fullscreen-backdrop");
-  if (!backdrop.hidden) return;
-  backdrop.hidden = false;
-  document.getElementById("activity-fullscreen-button").setAttribute("aria-expanded", "true");
+function openActivity() {
+  const toggle = document.getElementById("activity-toggle");
+  if (toggle.hidden || isActivityOpen()) return;
+  activityReturnFocus = toggle;
+  document.getElementById("activity-dialog-backdrop").hidden = false;
+  toggle.setAttribute("aria-expanded", "true");
   lockActivityScroll();
-  refreshActivityGraph();
-  document.getElementById("activity-fullscreen-close").focus();
+  refreshActivity();
+  document.getElementById("activity-dialog-close").focus();
 }
 
-function closeActivityFullscreen() {
-  const backdrop = document.getElementById("activity-fullscreen-backdrop");
+function closeActivity() {
+  const backdrop = document.getElementById("activity-dialog-backdrop");
   if (backdrop.hidden) return;
   backdrop.hidden = true;
-  document.getElementById("activity-fullscreen-button").setAttribute("aria-expanded", "false");
+  document.getElementById("activity-toggle").setAttribute("aria-expanded", "false");
   unlockActivityScroll();
-  const trigger = document.getElementById("activity-fullscreen-button");
-  if (!trigger.hidden && !document.getElementById("activity-details").hidden) trigger.focus();
-}
-
-function stepActivityYear(offset) {
-  const target = activityYear + offset;
-  if (offset > 0 && target > effectiveNow().getFullYear()) return;
-  activityYear = target;
-  refreshActivityGraph();
+  const target = activityReturnFocus || document.getElementById("activity-toggle");
+  activityReturnFocus = null;
+  if (!target.hidden) target.focus();
 }
 
 function setActivityTask(id) {
   activityTaskId = id;
-  refreshActivityGraph();
+  refreshActivity();
 }
 
 function setActivityView(view) {
@@ -890,12 +848,15 @@ function setActivityView(view) {
     }
   }
   activityView = view;
-  refreshActivityGraph();
+  refreshActivity();
 }
 
 function stepActivityPeriod(offset) {
   if (activityView === "year") {
-    stepActivityYear(offset);
+    const target = activityYear + offset;
+    if (offset > 0 && target > effectiveNow().getFullYear()) return;
+    activityYear = target;
+    refreshActivity();
     return;
   }
 
@@ -907,7 +868,7 @@ function stepActivityPeriod(offset) {
   }
   activityYear = target.getFullYear();
   activityMonth = target.getMonth();
-  refreshActivityGraph();
+  refreshActivity();
 }
 
 // how long the timer may sleep before re-reading the clock; timers can run late
@@ -973,6 +934,14 @@ document.getElementById("history-toggle").addEventListener("click", (e) => {
   e.target.setAttribute("aria-expanded", String(open));
 });
 
+document.getElementById("activity-toggle").addEventListener("click", openActivity);
+
+document.getElementById("activity-dialog-close").addEventListener("click", closeActivity);
+
+document.getElementById("activity-dialog-backdrop").addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) closeActivity();
+});
+
 document.getElementById("activity-prev").addEventListener("click", () => {
   stepActivityPeriod(-1);
 });
@@ -987,41 +956,21 @@ document.querySelectorAll(".activity-view-button").forEach((button) => {
   });
 });
 
-document.getElementById("activity-task-filter").addEventListener("change", (e) => {
-  setActivityTask(e.target.value);
-});
-
-document.getElementById("activity-fullscreen-button").addEventListener("click", openActivityFullscreen);
-
-document.getElementById("activity-fullscreen-close").addEventListener("click", closeActivityFullscreen);
-
-document.getElementById("activity-fullscreen-backdrop").addEventListener("click", (e) => {
-  if (e.target === e.currentTarget) closeActivityFullscreen();
-});
-
-document.getElementById("activity-fullscreen-prev").addEventListener("click", () => {
-  stepActivityYear(-1);
-});
-
-document.getElementById("activity-fullscreen-next").addEventListener("click", () => {
-  stepActivityYear(1);
-});
-
-document.getElementById("activity-fullscreen-filter").addEventListener("change", (e) => {
+document.getElementById("activity-filter").addEventListener("change", (e) => {
   setActivityTask(e.target.value);
 });
 
 document.addEventListener("keydown", (e) => {
-  if (!isActivityFullscreenOpen() || isIntroOpen()) return;
+  if (!isActivityOpen() || isIntroOpen()) return;
 
   if (e.key === "Escape") {
     e.preventDefault();
-    closeActivityFullscreen();
+    closeActivity();
     return;
   }
   if (e.key !== "Tab") return;
 
-  const dialog = document.getElementById("activity-fullscreen");
+  const dialog = document.getElementById("activity-dialog");
   const focusable = Array.from(
     dialog.querySelectorAll(
       'button:not([disabled]), select:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'

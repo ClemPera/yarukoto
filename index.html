@@ -48,6 +48,7 @@
     <footer class="page-footer">
       <button type="button" class="link-button" id="history-toggle" aria-expanded="false" aria-controls="history-panel">history</button>
       <button type="button" class="link-button" id="settings-toggle" aria-expanded="false" aria-controls="settings-panel">settings</button>
+      <button type="button" class="link-button" id="activity-toggle" aria-haspopup="dialog" aria-controls="activity-dialog" aria-expanded="false">activity</button>
       <button type="button" class="link-button" id="export-button">export</button>
       <label class="link-button file-label">
         import
@@ -70,41 +71,6 @@
         <h3>Last 7 days</h3>
         <div id="history-daily"></div>
       </div>
-      <details class="activity-details" id="activity-details" hidden>
-        <summary>Activity graph</summary>
-        <div class="activity-controls">
-          <label class="activity-filter" for="activity-task-filter">
-            <span>Show</span>
-            <select id="activity-task-filter" aria-controls="activity-graph"></select>
-          </label>
-          <div class="activity-view-toggle" role="group" aria-label="Activity view">
-            <button type="button" class="activity-view-button" data-view="month" aria-pressed="true">Month</button>
-            <button type="button" class="activity-view-button" data-view="year" aria-pressed="false">Year</button>
-          </div>
-          <button type="button" class="activity-fullscreen-button" id="activity-fullscreen-button" aria-label="Open full screen year view" aria-haspopup="dialog" aria-controls="activity-fullscreen-backdrop" aria-expanded="false" hidden>Full screen</button>
-        </div>
-        <div class="activity-period-nav">
-          <button type="button" class="activity-arrow" id="activity-prev" aria-label="Previous month">&lsaquo;</button>
-          <span class="activity-period-label" id="activity-period-label" aria-live="polite"></span>
-          <button type="button" class="activity-arrow" id="activity-next" aria-label="Next month">&rsaquo;</button>
-        </div>
-        <div class="activity-graph" id="activity-graph" role="img"></div>
-        <div class="activity-legend" id="activity-legend-all" aria-hidden="true">
-          <span>Less</span>
-          <span class="activity-swatch level-0"></span>
-          <span class="activity-swatch level-1"></span>
-          <span class="activity-swatch level-2"></span>
-          <span class="activity-swatch level-3"></span>
-          <span class="activity-swatch level-4"></span>
-          <span>More</span>
-        </div>
-        <div class="activity-legend" id="activity-legend-task" aria-hidden="true" hidden>
-          <span>Not done</span>
-          <span class="activity-swatch level-0"></span>
-          <span class="activity-swatch level-4"></span>
-          <span>Done</span>
-        </div>
-      </details>
       <h3>Completed</h3>
       <ul class="history-list" id="history-today"></ul>
       <p class="empty-note" id="history-empty" hidden>Nothing completed before today.</p>
@@ -138,25 +104,29 @@
     </div>
   </div>
 
-  <div class="modal-backdrop activity-fullscreen-backdrop" id="activity-fullscreen-backdrop" hidden>
-    <div class="modal activity-fullscreen-dialog" id="activity-fullscreen" role="dialog" aria-modal="true" aria-labelledby="activity-fullscreen-title">
-      <div class="activity-fullscreen-head">
-        <h2 class="modal-title" id="activity-fullscreen-title">Year activity</h2>
-        <button type="button" class="activity-fullscreen-close" id="activity-fullscreen-close" aria-label="Close full screen year view">&times;</button>
+  <div class="modal-backdrop activity-dialog-backdrop" id="activity-dialog-backdrop" hidden>
+    <div class="modal activity-dialog" id="activity-dialog" role="dialog" aria-modal="true" aria-labelledby="activity-dialog-title">
+      <div class="activity-dialog-head">
+        <h2 class="modal-title" id="activity-dialog-title">Activity</h2>
+        <button type="button" class="activity-dialog-close" id="activity-dialog-close" aria-label="Close activity">&times;</button>
       </div>
-      <div class="activity-fullscreen-toolbar">
-        <label class="activity-filter" for="activity-fullscreen-filter">
-          <span>Show</span>
-          <select id="activity-fullscreen-filter" aria-controls="activity-fullscreen-graph"></select>
-        </label>
-        <div class="activity-period-nav activity-fullscreen-nav">
-          <button type="button" class="activity-arrow" id="activity-fullscreen-prev" aria-label="Previous year">&lsaquo;</button>
-          <span class="activity-period-label" id="activity-fullscreen-period-label" aria-live="polite"></span>
-          <button type="button" class="activity-arrow" id="activity-fullscreen-next" aria-label="Next year">&rsaquo;</button>
+      <div class="activity-dialog-toolbar">
+        <div class="activity-view-toggle" role="group" aria-label="Activity view">
+          <button type="button" class="activity-view-button" data-view="month" aria-pressed="false">Month</button>
+          <button type="button" class="activity-view-button" data-view="year" aria-pressed="true">Year</button>
         </div>
+        <label class="activity-filter" for="activity-filter">
+          <span>Show</span>
+          <select id="activity-filter" aria-controls="activity-graph"></select>
+        </label>
       </div>
-      <div class="activity-graph activity-fullscreen-graph" id="activity-fullscreen-graph" role="img"></div>
-      <div class="activity-legend" id="activity-fullscreen-legend-all" aria-hidden="true">
+      <div class="activity-period-nav activity-dialog-nav">
+        <button type="button" class="activity-arrow" id="activity-prev" aria-label="Previous year">&lsaquo;</button>
+        <span class="activity-period-label" id="activity-period-label" aria-live="polite"></span>
+        <button type="button" class="activity-arrow" id="activity-next" aria-label="Next year">&rsaquo;</button>
+      </div>
+      <div class="activity-graph activity-dialog-graph" id="activity-graph" role="img"></div>
+      <div class="activity-legend" id="activity-legend-all" aria-hidden="true">
         <span>Less</span>
         <span class="activity-swatch level-0"></span>
         <span class="activity-swatch level-1"></span>
@@ -165,7 +135,7 @@
         <span class="activity-swatch level-4"></span>
         <span>More</span>
       </div>
-      <div class="activity-legend" id="activity-fullscreen-legend-task" aria-hidden="true" hidden>
+      <div class="activity-legend" id="activity-legend-task" aria-hidden="true" hidden>
         <span>Not done</span>
         <span class="activity-swatch level-0"></span>
         <span class="activity-swatch level-4"></span>
