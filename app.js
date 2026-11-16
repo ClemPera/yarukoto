@@ -145,6 +145,9 @@ let activityMonth = effectiveNow().getMonth();
 let activityView = "month";
 let activityTaskId = "all";
 let activityFilterSignature = null;
+let activityFullscreenReturnFocus = null;
+let activityFullscreenPreviousOverflow = "";
+let activityScrollLock = null;
 
 function addTask(title, type) {
   const id = uid();
@@ -569,49 +572,61 @@ function activityCellInfo(dateStr, dailyTasks, selectedTask) {
   };
 }
 
-// keep the select in the DOM across renders so choosing a task never loses focus
-function syncActivityFilter(dailyTasks) {
-  const select = document.getElementById("activity-task-filter");
+// keep the selects in the DOM across renders so choosing a task never loses focus
+function syncActivityFilters(dailyTasks) {
+  const selects = [
+    document.getElementById("activity-task-filter"),
+    document.getElementById("activity-fullscreen-filter"),
+  ];
   const signature = dailyTasks.map((t) => `${t.id}:${t.title}`).join("\n");
 
   if (signature !== activityFilterSignature) {
-    select.innerHTML = "";
-    const all = document.createElement("option");
-    all.value = "all";
-    all.textContent = "All tasks";
-    select.append(all);
-    dailyTasks.forEach((task) => {
-      const option = document.createElement("option");
-      option.value = task.id;
-      option.textContent = task.title;
-      select.append(option);
+    selects.forEach((select) => {
+      select.innerHTML = "";
+      const all = document.createElement("option");
+      all.value = "all";
+      all.textContent = "All tasks";
+      select.append(all);
+      dailyTasks.forEach((task) => {
+        const option = document.createElement("option");
+        option.value = task.id;
+        option.textContent = task.title;
+        select.append(option);
+      });
     });
     activityFilterSignature = signature;
   }
 
   const selected = dailyTasks.find((t) => t.id === activityTaskId);
   if (!selected) activityTaskId = "all";
-  select.value = activityTaskId;
+  selects.forEach((select) => {
+    select.value = activityTaskId;
+  });
   return selected || null;
 }
 
 function renderActivityGraph(dailyTasks) {
   const details = document.getElementById("activity-details");
   const graph = document.getElementById("activity-graph");
+  const fullscreenBackdrop = document.getElementById("activity-fullscreen-backdrop");
   details.hidden = dailyTasks.length === 0;
   if (dailyTasks.length === 0) {
     activityTaskId = "all";
     graph.innerHTML = "";
+    if (!fullscreenBackdrop.hidden) closeActivityFullscreen();
     return;
   }
 
-  const selectedTask = syncActivityFilter(dailyTasks);
+  const selectedTask = syncActivityFilters(dailyTasks);
   const isTaskView = Boolean(selectedTask);
   document.getElementById("activity-legend-all").hidden = isTaskView;
   document.getElementById("activity-legend-task").hidden = !isTaskView;
+  document.getElementById("activity-fullscreen-legend-all").hidden = isTaskView;
+  document.getElementById("activity-fullscreen-legend-task").hidden = !isTaskView;
   document.querySelectorAll(".activity-view-button").forEach((button) => {
     button.setAttribute("aria-pressed", String(button.dataset.view === activityView));
   });
+  document.getElementById("activity-fullscreen-button").hidden = activityView !== "year";
 
   const isYear = activityView === "year";
   document.getElementById("activity-prev").setAttribute("aria-label", isYear ? "Previous year" : "Previous month");
@@ -626,6 +641,8 @@ function renderActivityGraph(dailyTasks) {
   } else {
     renderActivityMonth(graph, dailyTasks, selectedTask);
   }
+
+  if (!fullscreenBackdrop.hidden) renderActivityFullscreen(dailyTasks, selectedTask);
 }
 
 function renderActivityMonth(graph, dailyTasks, selectedTask) {
@@ -705,20 +722,11 @@ function renderActivityMonth(graph, dailyTasks, selectedTask) {
   graph.append(months);
 }
 
-function renderActivityYear(graph, dailyTasks, selectedTask) {
+function buildActivityYearGrid(dailyTasks, selectedTask, fullscreen = false) {
   const currentYear = effectiveNow().getFullYear();
   const yearStart = dateToStr(new Date(activityYear, 0, 1));
   const yearEnd = dateToStr(new Date(activityYear, 11, 31));
   const cutoff = activityYear >= currentYear ? todayStr(-1) : yearEnd;
-
-  document.getElementById("activity-period-label").textContent = String(activityYear);
-  document.getElementById("activity-next").disabled = activityYear >= currentYear;
-  graph.setAttribute(
-    "aria-label",
-    selectedTask
-      ? `Habit activity for ${activityYear}, ${selectedTask.title}. Filled squares mean it was done.`
-      : `Habit activity for ${activityYear}, all tasks. Darker squares mean more habits completed.`
-  );
 
   const weekStarts = [];
   const firstWeek = mondayOf(new Date(activityYear, 0, 1));
@@ -728,11 +736,8 @@ function renderActivityYear(graph, dailyTasks, selectedTask) {
   }
   const weekIndex = new Map(weekStarts.map((week, index) => [dateToStr(week), index]));
 
-  const scroll = document.createElement("div");
-  scroll.className = "activity-year-scroll";
-
   const grid = document.createElement("div");
-  grid.className = "activity-year-grid";
+  grid.className = fullscreen ? "activity-year-grid activity-year-grid-full" : "activity-year-grid";
   grid.dataset.year = String(activityYear);
   grid.dataset.weeks = String(weekStarts.length);
   grid.style.setProperty("--year-weeks", weekStarts.length);
@@ -785,12 +790,92 @@ function renderActivityYear(graph, dailyTasks, selectedTask) {
     }
   });
 
-  scroll.append(grid);
+  return grid;
+}
+
+function renderActivityYear(graph, dailyTasks, selectedTask) {
+  const currentYear = effectiveNow().getFullYear();
+  document.getElementById("activity-period-label").textContent = String(activityYear);
+  document.getElementById("activity-next").disabled = activityYear >= currentYear;
+  graph.setAttribute(
+    "aria-label",
+    selectedTask
+      ? `Habit activity for ${activityYear}, ${selectedTask.title}. Filled squares mean it was done.`
+      : `Habit activity for ${activityYear}, all tasks. Darker squares mean more habits completed.`
+  );
+
+  const scroll = document.createElement("div");
+  scroll.className = "activity-year-scroll";
+  scroll.append(buildActivityYearGrid(dailyTasks, selectedTask));
   graph.append(scroll);
+}
+
+function renderActivityFullscreen(dailyTasks, selectedTask) {
+  const graph = document.getElementById("activity-fullscreen-graph");
+  const currentYear = effectiveNow().getFullYear();
+  document.getElementById("activity-fullscreen-period-label").textContent = String(activityYear);
+  document.getElementById("activity-fullscreen-next").disabled = activityYear >= currentYear;
+  graph.setAttribute(
+    "aria-label",
+    selectedTask
+      ? `Habit activity for ${activityYear}, ${selectedTask.title}. Filled squares mean it was done.`
+      : `Habit activity for ${activityYear}, all tasks. Darker squares mean more habits completed.`
+  );
+  graph.innerHTML = "";
+  graph.append(buildActivityYearGrid(dailyTasks, selectedTask, true));
 }
 
 function refreshActivityGraph() {
   renderActivityGraph(sortByPriority(state.tasks.filter((t) => t.type === "daily")));
+}
+
+function isActivityFullscreenOpen() {
+  return !document.getElementById("activity-fullscreen-backdrop").hidden;
+}
+
+function lockActivityScroll() {
+  if (activityScrollLock !== null) return;
+  activityScrollLock = document.body.style.overflow;
+  document.body.style.overflow = "hidden";
+}
+
+function unlockActivityScroll() {
+  if (activityScrollLock === null) return;
+  document.body.style.overflow = activityScrollLock;
+  activityScrollLock = null;
+}
+
+function openActivityFullscreen() {
+  if (activityView !== "year" || document.getElementById("activity-details").hidden) return;
+  const backdrop = document.getElementById("activity-fullscreen-backdrop");
+  if (!backdrop.hidden) return;
+  backdrop.hidden = false;
+  document.getElementById("activity-fullscreen-button").setAttribute("aria-expanded", "true");
+  lockActivityScroll();
+  refreshActivityGraph();
+  document.getElementById("activity-fullscreen-close").focus();
+}
+
+function closeActivityFullscreen() {
+  const backdrop = document.getElementById("activity-fullscreen-backdrop");
+  if (backdrop.hidden) return;
+  backdrop.hidden = true;
+  document.getElementById("activity-fullscreen-button").setAttribute("aria-expanded", "false");
+  unlockActivityScroll();
+  const trigger = document.getElementById("activity-fullscreen-button");
+  if (!trigger.hidden && !document.getElementById("activity-details").hidden) trigger.focus();
+}
+
+function stepActivityYear(offset) {
+  const target = activityYear + offset;
+  if (offset > 0 && target > effectiveNow().getFullYear()) return;
+  activityYear = target;
+  refreshActivityGraph();
+}
+
+function setActivityTask(id) {
+  activityTaskId = id;
+  refreshActivityGraph();
 }
 
 function setActivityView(view) {
@@ -810,19 +895,18 @@ function setActivityView(view) {
 
 function stepActivityPeriod(offset) {
   if (activityView === "year") {
-    const target = activityYear + offset;
-    if (offset > 0 && target > effectiveNow().getFullYear()) return;
-    activityYear = target;
-  } else {
-    const target = new Date(activityYear, activityMonth + offset, 1);
-    if (offset > 0) {
-      const now = effectiveNow();
-      const currentIndex = now.getFullYear() * 12 + now.getMonth();
-      if (target.getFullYear() * 12 + target.getMonth() > currentIndex) return;
-    }
-    activityYear = target.getFullYear();
-    activityMonth = target.getMonth();
+    stepActivityYear(offset);
+    return;
   }
+
+  const target = new Date(activityYear, activityMonth + offset, 1);
+  if (offset > 0) {
+    const now = effectiveNow();
+    const currentIndex = now.getFullYear() * 12 + now.getMonth();
+    if (target.getFullYear() * 12 + target.getMonth() > currentIndex) return;
+  }
+  activityYear = target.getFullYear();
+  activityMonth = target.getMonth();
   refreshActivityGraph();
 }
 
@@ -904,8 +988,59 @@ document.querySelectorAll(".activity-view-button").forEach((button) => {
 });
 
 document.getElementById("activity-task-filter").addEventListener("change", (e) => {
-  activityTaskId = e.target.value;
-  refreshActivityGraph();
+  setActivityTask(e.target.value);
+});
+
+document.getElementById("activity-fullscreen-button").addEventListener("click", openActivityFullscreen);
+
+document.getElementById("activity-fullscreen-close").addEventListener("click", closeActivityFullscreen);
+
+document.getElementById("activity-fullscreen-backdrop").addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) closeActivityFullscreen();
+});
+
+document.getElementById("activity-fullscreen-prev").addEventListener("click", () => {
+  stepActivityYear(-1);
+});
+
+document.getElementById("activity-fullscreen-next").addEventListener("click", () => {
+  stepActivityYear(1);
+});
+
+document.getElementById("activity-fullscreen-filter").addEventListener("change", (e) => {
+  setActivityTask(e.target.value);
+});
+
+document.addEventListener("keydown", (e) => {
+  if (!isActivityFullscreenOpen() || isIntroOpen()) return;
+
+  if (e.key === "Escape") {
+    e.preventDefault();
+    closeActivityFullscreen();
+    return;
+  }
+  if (e.key !== "Tab") return;
+
+  const dialog = document.getElementById("activity-fullscreen");
+  const focusable = Array.from(
+    dialog.querySelectorAll(
+      'button:not([disabled]), select:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+    )
+  );
+  if (focusable.length === 0) return;
+
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (!dialog.contains(document.activeElement)) {
+    e.preventDefault();
+    first.focus();
+  } else if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
 });
 
 document.getElementById("settings-toggle").addEventListener("click", (e) => {

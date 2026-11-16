@@ -167,15 +167,17 @@ describe("activity graph", () => {
     expect(select.width).toBeUndefined();
   });
 
-  it("keeps the filter and the Month/Year toggle in one wrapping row", () => {
+  it("keeps the filter, the Month/Year toggle, and the fullscreen button in one wrapping row", () => {
     const controls = rule(".activity-controls");
     expect(controls.display).toBe("flex");
     expect(controls["flex-wrap"]).toBe("wrap");
-    expect(controls["justify-content"]).toBe("space-between");
+    expect(controls["justify-content"]).toBe("flex-end");
     expect(controls["max-width"]).toBe("22rem");
     expect(rule(".activity-filter").flex).toBe("1 1 9rem");
     expect(rule(".activity-view-toggle").flex).toBe("none");
     expect(rule(".activity-view-button")["font-size"]).toBe("0.78rem");
+    expect(rule(".activity-fullscreen-button").flex).toBe("none");
+    expect(rule(".activity-fullscreen-button")["font-size"]).toBe("0.78rem");
   });
 
   it("scrolls the year grid sideways inside its own container", () => {
@@ -213,6 +215,38 @@ describe("activity graph", () => {
     expect(labels["grid-row"]).toBe("2 / span 7");
     expect(labels.width).toBe("2.4rem");
     expect(labels.background).toBe("var(--paper)");
+  });
+
+  it("opens the year graph in a wide dialog that stays inside the viewport", () => {
+    const dialog = rule(".activity-fullscreen-dialog");
+    expect(dialog.width).toBe("min(96vw, 72rem)");
+    expect(dialog["max-width"]).toBe("100%");
+    expect(dialog["min-width"]).toBe("0");
+    expect(rule(".activity-fullscreen-backdrop").padding).toBe("1.25rem");
+    expect(rule(".activity-fullscreen-head .modal-title")["font-size"]).toBe("1.55rem");
+  });
+
+  it("fits the whole year in the dialog without a horizontal scroll container", () => {
+    const grid = rule(".activity-year-grid-full");
+    expect(grid.width).toBe("100%");
+    expect(grid["grid-template-columns"]).toBe(
+      "2.4rem repeat(var(--year-weeks, 53), minmax(0, 1fr))"
+    );
+    expect(grid["--year-gap"]).toBe("0.3rem");
+    expect(rule(".activity-year-grid").gap).toBe("var(--year-gap)");
+    expect(grid["overflow-x"]).toBeUndefined();
+    expect(rule(".activity-fullscreen-graph")["overflow-x"]).toBeUndefined();
+    expect(rule(".activity-fullscreen-graph")["min-width"]).toBe("0");
+    expect(rule(".activity-fullscreen-graph").width).toBe("100%");
+  });
+
+  it("scales the fullscreen labels above the compact year grid", () => {
+    expect(
+      parseFloat(rule(".activity-year-grid-full .activity-year-month")["font-size"])
+    ).toBeGreaterThan(parseFloat(rule(".activity-year-month")["font-size"]));
+    expect(
+      parseFloat(rule(".activity-year-grid-full .activity-weekday")["font-size"])
+    ).toBeGreaterThan(parseFloat(rule(".activity-weekday")["font-size"]));
   });
 
   it("has no fixed width or min-width that could overflow the card at 320px", () => {
@@ -259,5 +293,20 @@ describe("phone widths", () => {
     expect(phoneRule("body").padding).toBe("1.25rem 0.75rem");
     expect(phoneRule(".page").padding).toBe("1.4rem 0.9rem 1.2rem");
     expect(phoneRule(".task-row").gap).toBe("0.45rem");
+  });
+
+  it("compacts the fullscreen dialog and year grid to fit 320px", () => {
+    expect(phoneRule(".activity-fullscreen-backdrop").padding).toBe("0.5rem");
+    expect(phoneRule(".activity-fullscreen-dialog").padding).toBe("0.9rem 0.85rem 0.85rem");
+    expect(phoneRule(".activity-fullscreen-head .modal-title")["font-size"]).toBe("1.2rem");
+
+    const grid = phoneRule(".activity-year-grid-full");
+    expect(grid["--year-gap"]).toBe("0.05rem");
+    expect(grid["grid-template-columns"]).toBe(
+      "1.7rem repeat(var(--year-weeks, 53), minmax(0, 1fr))"
+    );
+    expect(phoneRule(".activity-year-grid-full .activity-year-weekdays").width).toBe("1.7rem");
+    expect(phoneRule(".activity-year-grid-full .activity-weekday")["font-size"]).toBe("0.6rem");
+    expect(phoneRule(".activity-year-grid-full .activity-year-month")["font-size"]).toBe("0.58rem");
   });
 });

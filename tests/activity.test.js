@@ -1,4 +1,4 @@
-import { loadApp, click, change } from "./helpers/dom.js";
+import { loadApp, click, change, keydown, runDueTimers, setNow } from "./helpers/dom.js";
 
 function makeTask(id, createdAt, completions = [], extra = {}) {
   return {
@@ -26,8 +26,24 @@ function dates(doc) {
   );
 }
 
+function gridDates(container) {
+  return Array.from(container.querySelectorAll(".activity-cell[data-date]")).map(
+    (cell) => cell.dataset.date
+  );
+}
+
 function setView(doc, view) {
   click(doc.querySelector(`.activity-view-button[data-view="${view}"]`));
+}
+
+const fullscreenTrigger = (doc) => doc.getElementById("activity-fullscreen-button");
+const fullscreenBackdrop = (doc) => doc.getElementById("activity-fullscreen-backdrop");
+const fullscreenGrid = (doc) =>
+  doc.querySelector("#activity-fullscreen-graph .activity-year-grid-full");
+
+function openFullscreen(doc) {
+  setView(doc, "year");
+  click(fullscreenTrigger(doc));
 }
 
 function localePeriod(year, monthIndex) {
@@ -558,6 +574,250 @@ describe("task filter", () => {
   });
 });
 
+describe("fullscreen year view", () => {
+  it("shows the Full screen button only in Year view", () => {
+    const dom = seed([makeTask("habit", "2026-01-01")]);
+    const doc = dom.window.document;
+    const button = fullscreenTrigger(doc);
+
+    expect(button.hidden).toBe(true);
+    expect(button.textContent).toBe("Full screen");
+    expect(button.getAttribute("aria-label")).toBe("Open full screen year view");
+    expect(button.getAttribute("aria-haspopup")).toBe("dialog");
+    expect(button.getAttribute("aria-expanded")).toBe("false");
+
+    setView(doc, "year");
+    expect(button.hidden).toBe(false);
+
+    setView(doc, "month");
+    expect(button.hidden).toBe(true);
+  });
+
+  it("opens a labelled dialog with a full year grid and no scroll wrapper", () => {
+    const dom = seed([makeTask("habit", "2026-01-01")]);
+    const doc = dom.window.document;
+    openFullscreen(doc);
+
+    const dialog = doc.getElementById("activity-fullscreen");
+    expect(fullscreenBackdrop(doc).hidden).toBe(false);
+    expect(fullscreenTrigger(doc).getAttribute("aria-expanded")).toBe("true");
+    expect(dialog.getAttribute("role")).toBe("dialog");
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    expect(dialog.getAttribute("aria-labelledby")).toBe("activity-fullscreen-title");
+    expect(doc.getElementById("activity-fullscreen-title").textContent).toBe("Year activity");
+
+    const grid = fullscreenGrid(doc);
+    expect(grid).not.toBeNull();
+    expect(grid.dataset.year).toBe("2026");
+    expect(grid.dataset.weeks).toBe("53");
+    expect(grid.querySelectorAll(".activity-year-weekdays .activity-weekday")).toHaveLength(7);
+    expect(grid.querySelectorAll(".activity-year-month")).toHaveLength(12);
+    expect(gridDates(grid)).toHaveLength(73);
+    expect(gridDates(grid)[0]).toBe("2026-01-01");
+    expect(gridDates(grid).at(-1)).toBe("2026-03-14");
+    expect(doc.querySelector("#activity-fullscreen-graph .activity-year-scroll")).toBeNull();
+    expect(doc.getElementById("activity-fullscreen-graph").getAttribute("aria-label")).toBe(
+      "Habit activity for 2026, all tasks. Darker squares mean more habits completed."
+    );
+    expect(doc.activeElement).toBe(doc.getElementById("activity-fullscreen-close"));
+  });
+
+  it("steps the shared year from inside the dialog and from the panel", () => {
+    const dom = seed([makeTask("habit", "2024-01-01")]);
+    const doc = dom.window.document;
+    openFullscreen(doc);
+
+    const modalGrid = () => fullscreenGrid(doc);
+    const mainGrid = () => doc.querySelector("#activity-graph .activity-year-grid");
+
+    click(doc.getElementById("activity-fullscreen-prev"));
+    expect(doc.getElementById("activity-fullscreen-period-label").textContent).toBe("2025");
+    expect(doc.getElementById("activity-period-label").textContent).toBe("2025");
+    expect(modalGrid().dataset.year).toBe("2025");
+    expect(mainGrid().dataset.year).toBe("2025");
+    expect(gridDates(modalGrid())).toHaveLength(365);
+    expect(gridDates(mainGrid())).toHaveLength(365);
+    expect(doc.getElementById("activity-fullscreen-next").disabled).toBe(false);
+
+    click(doc.getElementById("activity-prev"));
+    expect(doc.getElementById("activity-fullscreen-period-label").textContent).toBe("2024");
+    expect(doc.getElementById("activity-period-label").textContent).toBe("2024");
+    expect(modalGrid().dataset.year).toBe("2024");
+    expect(mainGrid().dataset.year).toBe("2024");
+    expect(gridDates(modalGrid())).toHaveLength(366);
+
+    click(doc.getElementById("activity-fullscreen-next"));
+    click(doc.getElementById("activity-fullscreen-next"));
+    expect(doc.getElementById("activity-fullscreen-period-label").textContent).toBe("2026");
+    expect(doc.getElementById("activity-period-label").textContent).toBe("2026");
+    expect(doc.getElementById("activity-fullscreen-next").disabled).toBe(true);
+    expect(doc.getElementById("activity-next").disabled).toBe(true);
+    expect(gridDates(modalGrid())).toHaveLength(73);
+  });
+
+  it("shares the task filter in both directions", () => {
+    const dom = seed([
+      makeTask("read", "2026-03-05", ["2026-03-07", "2026-03-09"], { title: "Read 10 pages" }),
+      makeTask("water", "2026-01-01", ["2026-03-04"], { title: "Drink water" }),
+    ]);
+    const doc = dom.window.document;
+    openFullscreen(doc);
+
+    const modalFilter = doc.getElementById("activity-fullscreen-filter");
+    const mainFilter = doc.getElementById("activity-task-filter");
+    expect(modalFilter.value).toBe("all");
+    expect(gridDates(fullscreenGrid(doc))).toHaveLength(73);
+
+    change(modalFilter, "read");
+    expect(mainFilter.value).toBe("read");
+    expect(gridDates(fullscreenGrid(doc))).toHaveLength(10);
+    expect(gridDates(fullscreenGrid(doc))[0]).toBe("2026-03-05");
+    expect(gridDates(doc.getElementById("activity-graph"))).toHaveLength(10);
+    expect(
+      doc.querySelector('#activity-fullscreen-graph .activity-cell[data-date="2026-03-07"]').title
+    ).toBe(`${fullDate(2026, 2, 7)}\nRead 10 pages: Done`);
+    expect(doc.getElementById("activity-fullscreen-legend-all").hidden).toBe(true);
+    expect(doc.getElementById("activity-fullscreen-legend-task").hidden).toBe(false);
+    expect(doc.getElementById("activity-legend-all").hidden).toBe(true);
+
+    change(mainFilter, "water");
+    expect(modalFilter.value).toBe("water");
+    expect(gridDates(fullscreenGrid(doc))).toHaveLength(73);
+    const done = doc.querySelector(
+      '#activity-fullscreen-graph .activity-cell[data-date="2026-03-04"]'
+    );
+    expect(done.classList.contains("level-4")).toBe(true);
+    expect(done.title).toBe(`${fullDate(2026, 2, 4)}\nDrink water: Done`);
+    expect(
+      doc.querySelector('#activity-graph .activity-cell[data-date="2026-03-04"]').title
+    ).toBe(`${fullDate(2026, 2, 4)}\nDrink water: Done`);
+  });
+
+  it("closes with the close button, Escape, and a backdrop click", () => {
+    const dom = seed([makeTask("habit", "2026-01-01")]);
+    const doc = dom.window.document;
+    const button = fullscreenTrigger(doc);
+
+    openFullscreen(doc);
+    click(doc.getElementById("activity-fullscreen-close"));
+    expect(fullscreenBackdrop(doc).hidden).toBe(true);
+    expect(button.getAttribute("aria-expanded")).toBe("false");
+    expect(doc.activeElement).toBe(button);
+
+    click(button);
+    keydown(doc.body, "Escape");
+    expect(fullscreenBackdrop(doc).hidden).toBe(true);
+    expect(doc.activeElement).toBe(button);
+
+    click(button);
+    click(fullscreenBackdrop(doc));
+    expect(fullscreenBackdrop(doc).hidden).toBe(true);
+    expect(doc.activeElement).toBe(button);
+
+    click(button);
+    click(doc.querySelector("#activity-fullscreen .activity-fullscreen-toolbar"));
+    expect(fullscreenBackdrop(doc).hidden).toBe(false);
+  });
+
+  it("keeps Tab inside the dialog", () => {
+    const dom = seed([makeTask("habit", "2026-01-01")]);
+    const doc = dom.window.document;
+    openFullscreen(doc);
+
+    const close = doc.getElementById("activity-fullscreen-close");
+    const prev = doc.getElementById("activity-fullscreen-prev");
+    expect(doc.activeElement).toBe(close);
+
+    keydown(close, "Tab", { shiftKey: true });
+    expect(doc.activeElement).toBe(prev);
+
+    keydown(prev, "Tab");
+    expect(doc.activeElement).toBe(close);
+  });
+
+  it("locks page scrolling while open and restores the previous value", () => {
+    const dom = seed([makeTask("habit", "2026-01-01")]);
+    const doc = dom.window.document;
+    doc.body.style.overflow = "scroll";
+
+    openFullscreen(doc);
+    expect(doc.body.style.overflow).toBe("hidden");
+
+    click(doc.getElementById("activity-fullscreen-close"));
+    expect(doc.body.style.overflow).toBe("scroll");
+  });
+
+  it("rebuilds the open grid when a habit is completed", () => {
+    const dom = seed([makeTask("read", "2026-03-01", [], { title: "Read" })]);
+    const doc = dom.window.document;
+    openFullscreen(doc);
+
+    const before = fullscreenGrid(doc);
+    const check = doc.querySelector('#daily-list .task-row[data-id="read"] .task-check');
+    check.checked = true;
+    check.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+
+    const after = fullscreenGrid(doc);
+    expect(after).not.toBe(before);
+    expect(gridDates(after)).toHaveLength(73);
+    expect(after.querySelector('.activity-cell[data-date="2026-03-14"]').title).toBe(
+      `${fullDate(2026, 2, 14)}\nNo habits completed`
+    );
+    expect(fullscreenBackdrop(doc).hidden).toBe(false);
+    expect(doc.activeElement).toBe(doc.getElementById("activity-fullscreen-close"));
+  });
+
+  it("re-renders the open grid after the day rolls over", () => {
+    const dom = seed([makeTask("habit", "2026-01-01")]);
+    const doc = dom.window.document;
+    openFullscreen(doc);
+    expect(gridDates(fullscreenGrid(doc))).toHaveLength(73);
+
+    setNow(dom, new Date(2026, 2, 16, 0, 1, 0));
+    runDueTimers(dom);
+
+    expect(gridDates(fullscreenGrid(doc))).toHaveLength(74);
+    expect(
+      doc.querySelector('#activity-fullscreen-graph .activity-cell[data-date="2026-03-15"]')
+    ).not.toBeNull();
+    expect(fullscreenBackdrop(doc).hidden).toBe(false);
+  });
+
+  it("falls back to all tasks in the dialog when the selected habit is deleted", () => {
+    const dom = seed(
+      [
+        makeTask("read", "2026-03-05", ["2026-03-07"], { title: "Read 10 pages" }),
+        makeTask("water", "2026-01-01", [], { title: "Drink water" }),
+      ],
+      { reducedMotion: true }
+    );
+    const doc = dom.window.document;
+    openFullscreen(doc);
+    change(doc.getElementById("activity-fullscreen-filter"), "read");
+
+    click(doc.querySelector('.task-row[data-id="read"] .task-delete'));
+
+    expect(doc.getElementById("activity-fullscreen-filter").value).toBe("all");
+    expect(doc.getElementById("activity-task-filter").value).toBe("all");
+    expect(fullscreenBackdrop(doc).hidden).toBe(false);
+    expect(doc.getElementById("activity-fullscreen-legend-all").hidden).toBe(false);
+    expect(doc.getElementById("activity-fullscreen-legend-task").hidden).toBe(true);
+    expect(gridDates(fullscreenGrid(doc))).toHaveLength(73);
+  });
+
+  it("closes the dialog and hides the panel when the last daily habit is deleted", () => {
+    const dom = seed([makeTask("habit", "2026-01-01")], { reducedMotion: true });
+    const doc = dom.window.document;
+    openFullscreen(doc);
+
+    click(doc.querySelector('.task-row[data-id="habit"] .task-delete'));
+
+    expect(fullscreenBackdrop(doc).hidden).toBe(true);
+    expect(doc.getElementById("activity-details").hidden).toBe(true);
+    expect(doc.body.style.overflow).toBe("");
+  });
+});
+
 describe("graph structure", () => {
   it("uses plain spans for cells and keeps controls out of both grids", () => {
     const dom = seed([makeTask("habit", "2026-01-01")]);
@@ -576,7 +836,19 @@ describe("graph structure", () => {
     expect(details.querySelectorAll(".activity-year-grid button")).toHaveLength(0);
     expect(doc.querySelectorAll(".activity-year-weekdays .activity-weekday")).toHaveLength(7);
 
-    expect(details.querySelectorAll("button")).toHaveLength(4);
+    expect(details.querySelectorAll("button")).toHaveLength(5);
     expect(doc.querySelector(".activity-cell[tabindex]")).toBeNull();
+
+    openFullscreen(doc);
+    const modal = doc.getElementById("activity-fullscreen");
+    expect(modal.querySelectorAll(".activity-year-grid-full button")).toHaveLength(0);
+    expect(modal.querySelectorAll(".activity-cell button")).toHaveLength(0);
+    expect(modal.querySelectorAll(".activity-year-grid-full [tabindex]")).toHaveLength(0);
+    expect(modal.querySelector(".activity-cell[tabindex]")).toBeNull();
+    expect(
+      Array.from(modal.querySelectorAll(".activity-cell[data-date]")).every(
+        (cell) => cell.tagName === "SPAN" && cell.title.includes("\n")
+      )
+    ).toBe(true);
   });
 });

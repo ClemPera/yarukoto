@@ -209,12 +209,13 @@ export function submit(form) {
   );
 }
 
-export function keydown(el, key) {
+export function keydown(el, key, options = {}) {
   el.dispatchEvent(
     new el.ownerDocument.defaultView.KeyboardEvent("keydown", {
       key,
       bubbles: true,
       cancelable: true,
+      ...options,
     })
   );
 }

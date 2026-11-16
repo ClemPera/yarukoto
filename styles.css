@@ -779,7 +779,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 0.5rem 0.6rem;
   width: 100%;
   max-width: 22rem;
@@ -833,6 +833,32 @@ body {
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
 }
+
+.activity-fullscreen-button {
+  flex: none;
+  appearance: none;
+  border: 1px solid var(--paper-line);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.78rem;
+  line-height: 1;
+  padding: 0.35rem 0.55rem;
+  cursor: pointer;
+}
+
+.activity-fullscreen-button:hover {
+  color: var(--ink);
+  border-color: var(--ink-soft);
+}
+
+.activity-fullscreen-button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.activity-fullscreen-button[hidden] { display: none; }
 
 .activity-filter select {
   flex: 1;
@@ -1026,6 +1052,104 @@ body {
   background: transparent;
 }
 
+.activity-fullscreen-backdrop { padding: 1.25rem; }
+
+.activity-fullscreen-dialog {
+  width: min(96vw, 72rem);
+  max-width: 100%;
+  min-width: 0;
+  padding: 1.5rem 1.6rem 1.4rem;
+}
+
+.activity-fullscreen-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.activity-fullscreen-head .modal-title {
+  margin: 0;
+  font-size: 1.55rem;
+}
+
+.activity-fullscreen-close {
+  flex: none;
+  appearance: none;
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--paper-line);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.activity-fullscreen-close:hover {
+  color: var(--ink);
+  border-color: var(--ink-soft);
+}
+
+.activity-fullscreen-close:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.activity-fullscreen-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem 1.2rem;
+  margin: 1rem 0 1.1rem;
+}
+
+.activity-fullscreen-toolbar .activity-filter {
+  flex: 1 1 12rem;
+  max-width: 24rem;
+}
+
+.activity-fullscreen-nav {
+  margin: 0;
+  gap: 0.9rem;
+}
+
+.activity-fullscreen-nav .activity-arrow { font-size: 1.3rem; }
+
+.activity-fullscreen-nav .activity-period-label { font-size: 1.15rem; }
+
+.activity-fullscreen-graph {
+  width: 100%;
+  min-width: 0;
+}
+
+.activity-year-grid-full {
+  --year-gap: 0.3rem;
+  width: 100%;
+  grid-template-columns: 2.4rem repeat(var(--year-weeks, 53), minmax(0, 1fr));
+}
+
+.activity-year-grid-full .activity-year-month {
+  font-size: 0.8rem;
+  padding-left: 0.1rem;
+}
+
+.activity-year-grid-full .activity-weekday {
+  font-size: 0.82rem;
+  padding-right: 0.3rem;
+}
+
+.activity-year-grid-full .activity-year-weekdays {
+  width: 2.4rem;
+  padding-right: 0.6rem;
+  box-shadow: none;
+}
+
 /* on phones, give the task titles as much of the width as possible */
 @media (max-width: 400px) {
   body { padding: 1.25rem 0.75rem; }
@@ -1033,4 +1157,37 @@ body {
   .task-row { gap: 0.45rem; }
   .habit-axis { font-size: 0.62rem; }
   .habit-axis, .habit-dots { gap: 0.12rem; }
+  .activity-fullscreen-backdrop { padding: 0.5rem; }
+  .activity-fullscreen-dialog { padding: 0.9rem 0.85rem 0.85rem; }
+  .activity-fullscreen-head .modal-title { font-size: 1.2rem; }
+  .activity-fullscreen-close {
+    width: 1.8rem;
+    height: 1.8rem;
+    font-size: 1.2rem;
+  }
+  .activity-fullscreen-toolbar {
+    gap: 0.5rem 0.75rem;
+    margin: 0.75rem 0 0.85rem;
+  }
+  .activity-fullscreen-nav { gap: 0.5rem; }
+  .activity-fullscreen-nav .activity-period-label {
+    min-width: 6ch;
+    font-size: 1rem;
+  }
+  .activity-year-grid-full {
+    --year-gap: 0.05rem;
+    grid-template-columns: 1.7rem repeat(var(--year-weeks, 53), minmax(0, 1fr));
+  }
+  .activity-year-grid-full .activity-year-weekdays {
+    width: 1.7rem;
+    padding-right: 0.2rem;
+  }
+  .activity-year-grid-full .activity-weekday {
+    font-size: 0.6rem;
+    padding-right: 0.1rem;
+  }
+  .activity-year-grid-full .activity-year-month {
+    font-size: 0.58rem;
+    padding-left: 0;
+  }
 }
