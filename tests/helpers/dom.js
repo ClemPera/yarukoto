@@ -30,9 +30,16 @@ const bootHtml = html.replace(
  * - storage: value seeded into localStorage before the app loads. Pass an
  *   object to store JSON, or a string to store raw text (for corrupt-data tests).
  * - reducedMotion: makes matchMedia("(prefers-reduced-motion: reduce)") match.
+ * - phone: makes matchMedia("(max-width: 34rem)") match.
  * - confirm: initial return value of window.confirm (mutable via setConfirm).
  */
-export function loadApp({ now = FIXED_NOW, storage, reducedMotion = false, confirm = true } = {}) {
+export function loadApp({
+  now = FIXED_NOW,
+  storage,
+  reducedMotion = false,
+  confirm = true,
+  phone = false,
+} = {}) {
   const dom = new JSDOM(bootHtml, {
     url: "https://localhost/",
     runScripts: "dangerously",
@@ -65,18 +72,42 @@ export function loadApp({ now = FIXED_NOW, storage, reducedMotion = false, confi
         window.__timers.delete(id);
       };
 
-      window.matchMedia = (query) => ({
-        matches: reducedMotion && query.includes("prefers-reduced-motion"),
-        media: query,
-        onchange: null,
-        addEventListener() {},
-        removeEventListener() {},
-        addListener() {},
-        removeListener() {},
-        dispatchEvent() {
-          return false;
-        },
-      });
+      let phoneMatches = phone;
+      const mediaListeners = new Set();
+      window.matchMedia = (query) => {
+        const phoneQuery = query.includes("(max-width: 34rem)");
+        const matches = () =>
+          (phoneQuery && phoneMatches) ||
+          (reducedMotion && query.includes("prefers-reduced-motion"));
+        return {
+          get matches() {
+            return matches();
+          },
+          media: query,
+          onchange: null,
+          addEventListener(type, listener) {
+            if (type === "change" && phoneQuery) mediaListeners.add(listener);
+          },
+          removeEventListener(type, listener) {
+            if (type === "change" && phoneQuery) mediaListeners.delete(listener);
+          },
+          addListener(listener) {
+            if (phoneQuery) mediaListeners.add(listener);
+          },
+          removeListener(listener) {
+            if (phoneQuery) mediaListeners.delete(listener);
+          },
+          dispatchEvent() {
+            return false;
+          },
+        };
+      };
+      window.__setPhone = (value) => {
+        phoneMatches = value;
+        for (const listener of mediaListeners) {
+          listener({ matches: value, media: "(max-width: 34rem)" });
+        }
+      };
 
       window.__confirm = confirm;
       window.confirm = () => window.__confirm;

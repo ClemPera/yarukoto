@@ -120,10 +120,11 @@ describe("dialog", () => {
 
     const grid = doc.querySelector("#activity-graph .activity-year-grid");
     expect(grid).not.toBeNull();
-    expect(doc.querySelector("#activity-graph .activity-grid")).toBeNull();
+    expect(doc.querySelector("#activity-graph .activity-month-grid")).toBeNull();
     expect(grid.dataset.weeks).toBe("53");
     expect(grid.querySelectorAll(".activity-year-weekdays .activity-weekday")).toHaveLength(7);
     expect(grid.querySelectorAll(".activity-year-month")).toHaveLength(12);
+    expect(doc.getElementById("activity-year-layout").hidden).toBe(true);
 
     expect(doc.activeElement).toBe(doc.getElementById("activity-dialog-close"));
     expect(doc.getElementById("activity-dialog-close").getAttribute("aria-label")).toBe("Close activity");
@@ -145,9 +146,10 @@ describe("dialog", () => {
     setView(doc, "month");
     expect(doc.getElementById("activity-period-label").textContent).toBe(localePeriod(2025, 2));
     expect(doc.getElementById("activity-filter").value).toBe("read");
-    expect(doc.querySelector("#activity-graph .activity-grid")).not.toBeNull();
+    expect(doc.querySelector("#activity-graph .activity-month-grid")).not.toBeNull();
     expect(doc.querySelector("#activity-graph .activity-year-grid")).toBeNull();
     expect(doc.getElementById("activity-next").disabled).toBe(false);
+    expect(doc.getElementById("activity-year-layout").hidden).toBe(true);
 
     setView(doc, "year");
     expect(doc.getElementById("activity-period-label").textContent).toBe("2025");
@@ -210,13 +212,13 @@ describe("dialog", () => {
 });
 
 describe("month view", () => {
-  it("renders the transposed week grid directly in the graph", () => {
+  it("renders a conventional calendar directly in the graph", () => {
     const dom = seed([makeTask("habit", "2026-01-01")]);
     const doc = dom.window.document;
     open(doc);
     setView(doc, "month");
 
-    const grid = doc.querySelector("#activity-graph .activity-grid");
+    const grid = doc.querySelector("#activity-graph .activity-month-grid");
     const period = doc.getElementById("activity-period-label");
 
     expect(grid).not.toBeNull();
@@ -231,6 +233,9 @@ describe("month view", () => {
       (label) => label.textContent
     );
     expect(weekdays).toEqual(WEEKDAY_NAMES);
+    expect(Array.from(grid.children).slice(0, 7).map((el) => el.className)).toEqual(
+      Array(7).fill("activity-weekday")
+    );
 
     expect(graph(doc).getAttribute("role")).toBe("img");
     expect(graph(doc).getAttribute("aria-label")).toBe(
@@ -238,26 +243,27 @@ describe("month view", () => {
     );
   });
 
-  it("is Monday-first and ends today", () => {
+  it("puts weeks in rows, Monday first, with blanks before the first day", () => {
     const dom = seed([makeTask("habit", "2026-01-01")]);
     const doc = dom.window.document;
     open(doc);
     setView(doc, "month");
 
-    const grid = doc.querySelector("#activity-graph .activity-grid");
+    const grid = doc.querySelector("#activity-graph .activity-month-grid");
     const cells = Array.from(grid.querySelectorAll(".activity-cell"));
     const all = dates(doc);
 
-    expect(grid.style.getPropertyValue("--activity-weeks")).toBe("3");
+    // March 1 2026 is a Sunday: six leading blanks, then three full weeks
     expect(cells).toHaveLength(21);
-    expect(cells[0].classList.contains("is-out")).toBe(true);
+    expect(cells.slice(0, 6).every((el) => el.classList.contains("is-out"))).toBe(true);
+    expect(cells.slice(0, 6).every((el) => !el.dataset.date)).toBe(true);
     expect(cells[6].dataset.date).toBe("2026-03-01");
     expect(cells[7].dataset.date).toBe("2026-03-02");
+    expect(cells[20].dataset.date).toBe("2026-03-15");
 
     expect(all).toHaveLength(15);
     expect(all[0]).toBe("2026-03-01");
     expect(all.at(-1)).toBe("2026-03-15");
-    expect(all).toContain("2026-03-15");
     expect(cell(doc, "2026-03-16")).toBeNull();
     expect(doc.querySelector(".activity-cell.is-out[data-date]")).toBeNull();
   });
@@ -279,6 +285,9 @@ describe("month view", () => {
     expect(dates(doc)).toHaveLength(28);
     expect(dates(doc)[0]).toBe("2026-02-01");
     expect(dates(doc).at(-1)).toBe("2026-02-28");
+    expect(doc.querySelectorAll("#activity-graph .activity-month-grid .activity-cell")).toHaveLength(
+      35
+    );
 
     const lastDay = cell(doc, "2026-02-28");
     expect(lastDay.classList.contains("level-4")).toBe(true);
@@ -313,6 +322,9 @@ describe("month view", () => {
     expect(dates(doc)).toHaveLength(31);
     expect(dates(doc)[0]).toBe("2025-12-01");
     expect(dates(doc).at(-1)).toBe("2025-12-31");
+    expect(doc.querySelectorAll("#activity-graph .activity-month-grid .activity-cell")).toHaveLength(
+      35
+    );
 
     click(next);
     expect(period.textContent).toBe(localePeriod(2026, 0));
@@ -351,9 +363,8 @@ describe("today", () => {
     open(doc);
     setView(doc, "month");
 
-    const grid = doc.querySelector("#activity-graph .activity-grid");
+    const grid = doc.querySelector("#activity-graph .activity-month-grid");
     const todayCell = cell(doc, "2026-03-15");
-    expect(grid.style.getPropertyValue("--activity-weeks")).toBe("3");
     expect(grid.querySelectorAll(".activity-cell")).toHaveLength(21);
     expect(todayCell).not.toBeNull();
     expect(todayCell.classList.contains("is-today")).toBe(true);
@@ -466,6 +477,111 @@ describe("year view", () => {
   });
 });
 
+describe("phone year layout", () => {
+  it("defaults to a twelve-row month heatmap aligned by day number", () => {
+    const dom = seed([makeTask("habit", "2026-01-01")], { phone: true });
+    const doc = dom.window.document;
+    open(doc);
+
+    const heatmap = doc.querySelector("#activity-graph .activity-year-months");
+    expect(heatmap).not.toBeNull();
+    expect(doc.querySelector("#activity-graph .activity-year-grid")).toBeNull();
+    expect(doc.querySelector(".activity-year-scroll")).toBeNull();
+    expect(heatmap.dataset.year).toBe("2026");
+
+    const labels = Array.from(heatmap.querySelectorAll(".activity-month-name")).map(
+      (label) => label.textContent
+    );
+    expect(labels).toEqual(MONTH_NAMES);
+
+    // each row is one month label followed by 31 day columns
+    expect(heatmap.children).toHaveLength(12 * 32);
+    expect(heatmap.children[1].dataset.date).toBe("2026-01-01");
+    expect(heatmap.children[31].dataset.date).toBe("2026-01-31");
+    expect(heatmap.children[32].textContent).toBe(MONTH_NAMES[1]);
+
+    // February's missing days are blanks, not a shorter row
+    expect(heatmap.children[33 + 27].dataset.date).toBe("2026-02-28");
+    expect(heatmap.children[33 + 28].classList.contains("is-out")).toBe(true);
+    expect(heatmap.children[33 + 28].dataset.date).toBeUndefined();
+    expect(heatmap.children[33 + 30].classList.contains("is-out")).toBe(true);
+
+    // and March stops at today
+    const marchStart = 2 * 32 + 1;
+    expect(heatmap.children[marchStart + 14].dataset.date).toBe("2026-03-15");
+    expect(heatmap.children[marchStart + 14].classList.contains("is-today")).toBe(true);
+    expect(heatmap.children[marchStart + 15].classList.contains("is-out")).toBe(true);
+
+    expect(dates(doc)).toHaveLength(74);
+    expect(dates(doc).at(-1)).toBe("2026-03-15");
+    expect(doc.querySelectorAll(".activity-cell.is-today")).toHaveLength(1);
+
+    const layout = doc.getElementById("activity-year-layout");
+    expect(layout.hidden).toBe(false);
+    expect(layout.querySelector('[data-layout="months"]').getAttribute("aria-pressed")).toBe("true");
+    expect(layout.querySelector('[data-layout="weeks"]').getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("switches to the scrollable week grid, keeps its scroll, and switches back", () => {
+    const dom = seed([makeTask("habit", "2026-01-01")], { phone: true });
+    const doc = dom.window.document;
+    open(doc);
+
+    click(doc.querySelector('.activity-year-layout-button[data-layout="weeks"]'));
+    const scroll = doc.querySelector("#activity-graph .activity-year-scroll");
+    expect(scroll).not.toBeNull();
+    expect(scroll.querySelector(".activity-year-grid")).not.toBeNull();
+    expect(doc.querySelector("#activity-graph .activity-year-months")).toBeNull();
+    expect(dates(doc)).toHaveLength(74);
+    expect(doc.querySelector('.activity-year-layout-button[data-layout="weeks"]').getAttribute("aria-pressed")).toBe("true");
+
+    scroll.scrollLeft = 180;
+    change(doc.getElementById("activity-filter"), "all");
+    const rerendered = doc.querySelector("#activity-graph .activity-year-scroll");
+    expect(rerendered).not.toBe(scroll);
+    expect(rerendered.scrollLeft).toBe(180);
+
+    click(doc.querySelector('.activity-year-layout-button[data-layout="months"]'));
+    expect(doc.querySelector("#activity-graph .activity-year-months")).not.toBeNull();
+    expect(doc.querySelector(".activity-year-scroll")).toBeNull();
+
+    setView(doc, "month");
+    expect(doc.querySelector("#activity-graph .activity-month-grid")).not.toBeNull();
+    expect(doc.getElementById("activity-year-layout").hidden).toBe(true);
+    expect(doc.querySelector('.activity-view-button[data-view="month"]').getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("redraws the open dialog when the viewport crosses the breakpoint", () => {
+    const dom = seed([makeTask("habit", "2026-01-01")]);
+    const doc = dom.window.document;
+    open(doc);
+
+    expect(doc.querySelector("#activity-graph .activity-year-grid")).not.toBeNull();
+    expect(doc.getElementById("activity-year-layout").hidden).toBe(true);
+
+    dom.window.__setPhone(true);
+    expect(doc.querySelector("#activity-graph .activity-year-months")).not.toBeNull();
+    expect(doc.getElementById("activity-year-layout").hidden).toBe(false);
+
+    dom.window.__setPhone(false);
+    expect(doc.querySelector("#activity-graph .activity-year-grid")).not.toBeNull();
+    expect(doc.getElementById("activity-year-layout").hidden).toBe(true);
+  });
+
+  it("renders the continuous week grid on desktop even after the phone layout changes", () => {
+    const dom = seed([makeTask("habit", "2026-01-01")], { phone: true });
+    const doc = dom.window.document;
+    open(doc);
+
+    click(doc.querySelector('.activity-year-layout-button[data-layout="weeks"]'));
+    expect(doc.querySelector(".activity-year-scroll")).not.toBeNull();
+
+    dom.window.__setPhone(false);
+    expect(doc.querySelector("#activity-graph .activity-year-grid")).not.toBeNull();
+    expect(doc.querySelector(".activity-year-scroll")).toBeNull();
+  });
+});
+
 describe("view switching", () => {
   it("keeps the same month number when going back to a past year", () => {
     const dom = seed([makeTask("habit", "2024-01-01")]);
@@ -538,7 +654,10 @@ describe("intensity", () => {
     setView(doc, "month");
 
     expect(cell(doc, "2026-03-05").classList.contains("level-0")).toBe(true);
+    expect(cell(doc, "2026-03-05").classList.contains("is-no-data")).toBe(true);
     expect(cell(doc, "2026-03-05").title).toBe(`${fullDate(2026, 2, 5)}\nNo habits yet`);
+    expect(cell(doc, "2026-03-12").classList.contains("level-0")).toBe(true);
+    expect(cell(doc, "2026-03-12").classList.contains("is-no-data")).toBe(false);
     expect(cell(doc, "2026-03-12").title).toBe(
       `${fullDate(2026, 2, 12)}\nNo habits completed`
     );
@@ -774,14 +893,15 @@ describe("graph structure", () => {
     expect(graph(doc).querySelector(".activity-cell[tabindex]")).toBeNull();
 
     setView(doc, "month");
-    const monthCells = Array.from(doc.querySelectorAll("#activity-graph .activity-grid .activity-cell"));
+    const monthCells = Array.from(doc.querySelectorAll("#activity-graph .activity-month-grid .activity-cell"));
     expect(monthCells.length).toBeGreaterThan(0);
     expect(monthCells.every((el) => el.tagName === "SPAN")).toBe(true);
     expect(graph(doc).querySelectorAll("button")).toHaveLength(0);
     expect(graph(doc).querySelectorAll("[tabindex]")).toHaveLength(0);
     expect(graph(doc).querySelector(".activity-cell[tabindex]")).toBeNull();
 
-    expect(dialog(doc).querySelectorAll("button")).toHaveLength(5);
+    expect(dialog(doc).querySelectorAll("button")).toHaveLength(7);
+    expect(doc.getElementById("activity-year-layout").hidden).toBe(true);
   });
 });
 

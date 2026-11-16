@@ -143,10 +143,12 @@ let rolloverTimer = null;
 let activityYear = effectiveNow().getFullYear();
 let activityMonth = effectiveNow().getMonth();
 let activityView = "year";
+let activityYearLayout = "months";
 let activityTaskId = "all";
 let activityFilterSignature = null;
 let activityReturnFocus = null;
 let activityScrollLock = null;
+const narrowViewport = window.matchMedia("(max-width: 34rem)");
 
 function addTask(title, type) {
   const id = uid();
@@ -570,7 +572,7 @@ function activityCellInfo(dateStr, dailyTasks, selectedTask) {
   }
 
   const existing = dailyTasks.filter((t) => t.createdAt <= dateStr);
-  if (existing.length === 0) return { level: 0, title: `${date}\nNo habits yet` };
+  if (existing.length === 0) return { level: 0, noData: true, title: `${date}\nNo habits yet` };
 
   const done = existing.filter((t) => t.completions.includes(dateStr));
   if (done.length === 0) return { level: 0, title: `${date}\nNo habits completed` };
@@ -633,12 +635,20 @@ function renderActivityPeriodLabel() {
 function renderActivity(dailyTasks, selectedTask) {
   const isTaskView = Boolean(selectedTask);
   const isYear = activityView === "year";
+  const isNarrow = narrowViewport.matches;
 
   document.getElementById("activity-legend-all").hidden = isTaskView;
   document.getElementById("activity-legend-task").hidden = !isTaskView;
   document.querySelectorAll(".activity-view-button").forEach((button) => {
     button.setAttribute("aria-pressed", String(button.dataset.view === activityView));
   });
+
+  const layoutSwitch = document.getElementById("activity-year-layout");
+  layoutSwitch.hidden = !(isYear && isNarrow);
+  layoutSwitch.querySelectorAll(".activity-year-layout-button").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.layout === activityYearLayout));
+  });
+
   document.getElementById("activity-prev").setAttribute("aria-label", isYear ? "Previous year" : "Previous month");
   document.getElementById("activity-next").setAttribute("aria-label", isYear ? "Next year" : "Next month");
 
@@ -650,12 +660,37 @@ function renderActivity(dailyTasks, selectedTask) {
       ? `Habit activity for ${periodLabel}, ${selectedTask.title}. Filled squares mean it was done.`
       : `Habit activity for ${periodLabel}, all tasks. Darker squares mean more habits completed.`
   );
+
+  // the phone week grid is rebuilt on every change, so carry its scroll offset over
+  const scrollLeft = graph.querySelector(".activity-year-scroll")?.scrollLeft ?? 0;
   graph.innerHTML = "";
-  graph.append(
-    isYear
-      ? buildActivityYearGrid(dailyTasks, selectedTask)
-      : buildActivityMonthGrid(dailyTasks, selectedTask)
-  );
+  if (!isYear) {
+    graph.append(buildActivityMonthGrid(dailyTasks, selectedTask));
+  } else if (!isNarrow) {
+    graph.append(buildActivityYearGrid(dailyTasks, selectedTask));
+  } else if (activityYearLayout === "weeks") {
+    graph.append(buildActivityYearWeeks(dailyTasks, selectedTask));
+  } else {
+    graph.append(buildActivityYearMonths(dailyTasks, selectedTask));
+  }
+  const scroller = graph.querySelector(".activity-year-scroll");
+  if (scroller) scroller.scrollLeft = scrollLeft;
+}
+
+function activityDayCell(dateStr, info, today) {
+  const cell = document.createElement("span");
+  cell.className = `activity-cell level-${info.level}`;
+  cell.dataset.date = dateStr;
+  cell.title = info.title;
+  if (info.noData) cell.classList.add("is-no-data");
+  if (dateStr === today) cell.classList.add("is-today");
+  return cell;
+}
+
+function activityBlankCell() {
+  const cell = document.createElement("span");
+  cell.className = "activity-cell is-out";
+  return cell;
 }
 
 function buildActivityMonthGrid(dailyTasks, selectedTask) {
@@ -668,20 +703,12 @@ function buildActivityMonthGrid(dailyTasks, selectedTask) {
   const monthEnd = dateToStr(last);
   const today = todayStr();
   const cutoff = selectedIndex >= currentIndex ? today : monthEnd;
-
-  const weekStarts = [];
-  const week = mondayOf(first);
   const lastWeek =
     selectedIndex === currentIndex ? mondayOf(dateFromStr(today)) : mondayOf(last);
-  while (week <= lastWeek) {
-    weekStarts.push(new Date(week));
-    week.setDate(week.getDate() + 7);
-  }
 
   const grid = document.createElement("div");
-  grid.className = "activity-grid";
+  grid.className = "activity-month-grid";
   grid.dataset.month = monthStart.slice(0, 7);
-  grid.style.setProperty("--activity-weeks", weekStarts.length);
 
   WEEKDAY_NAMES.forEach((name) => {
     const weekday = document.createElement("span");
@@ -690,31 +717,25 @@ function buildActivityMonthGrid(dailyTasks, selectedTask) {
     grid.append(weekday);
   });
 
-  weekStarts.forEach((weekStart) => {
+  for (let week = mondayOf(first); week <= lastWeek; week.setDate(week.getDate() + 7)) {
     for (let i = 0; i < 7; i++) {
-      const date = new Date(weekStart);
-      date.setDate(weekStart.getDate() + i);
+      const date = new Date(week);
+      date.setDate(week.getDate() + i);
       const dateStr = dateToStr(date);
-      const cell = document.createElement("span");
-      cell.className = "activity-cell";
-
       if (
         dateStr < monthStart ||
         dateStr > monthEnd ||
         dateStr > cutoff ||
         (selectedTask && dateStr < selectedTask.createdAt)
       ) {
-        cell.classList.add("is-out");
+        grid.append(activityBlankCell());
       } else {
-        const info = activityCellInfo(dateStr, dailyTasks, selectedTask);
-        cell.dataset.date = dateStr;
-        cell.title = info.title;
-        cell.classList.add(`level-${info.level}`);
-        if (dateStr === today) cell.classList.add("is-today");
+        grid.append(
+          activityDayCell(dateStr, activityCellInfo(dateStr, dailyTasks, selectedTask), today)
+        );
       }
-      grid.append(cell);
     }
-  });
+  }
 
   return grid;
 }
@@ -766,26 +787,60 @@ function buildActivityYearGrid(dailyTasks, selectedTask) {
       const date = new Date(weekStart);
       date.setDate(weekStart.getDate() + i);
       const dateStr = dateToStr(date);
-      const cell = document.createElement("span");
-      cell.className = "activity-cell";
-      cell.style.gridColumn = String(week + 2);
-      cell.style.gridRow = String(i + 2);
-
-      if (
+      const cell =
         dateStr < yearStart ||
         dateStr > yearEnd ||
         dateStr > cutoff ||
         (selectedTask && dateStr < selectedTask.createdAt)
-      ) {
-        cell.classList.add("is-out");
-      } else {
-        const info = activityCellInfo(dateStr, dailyTasks, selectedTask);
-        cell.dataset.date = dateStr;
-        cell.title = info.title;
-        cell.classList.add(`level-${info.level}`);
-        if (dateStr === today) cell.classList.add("is-today");
-      }
+          ? activityBlankCell()
+          : activityDayCell(dateStr, activityCellInfo(dateStr, dailyTasks, selectedTask), today);
+      cell.style.gridColumn = String(week + 2);
+      cell.style.gridRow = String(i + 2);
       grid.append(cell);
+    }
+  });
+
+  return grid;
+}
+
+function buildActivityYearWeeks(dailyTasks, selectedTask) {
+  const scroll = document.createElement("div");
+  scroll.className = "activity-year-scroll";
+  scroll.append(buildActivityYearGrid(dailyTasks, selectedTask));
+  return scroll;
+}
+
+function buildActivityYearMonths(dailyTasks, selectedTask) {
+  const currentYear = effectiveNow().getFullYear();
+  const yearEnd = dateToStr(new Date(activityYear, 11, 31));
+  const today = todayStr();
+  const cutoff = activityYear >= currentYear ? today : yearEnd;
+
+  const grid = document.createElement("div");
+  grid.className = "activity-year-months";
+  grid.dataset.year = String(activityYear);
+
+  MONTH_NAMES.forEach((name, month) => {
+    const label = document.createElement("span");
+    label.className = "activity-month-name";
+    label.textContent = name;
+    grid.append(label);
+
+    // always 31 columns so day numbers line up down the year
+    const daysInMonth = new Date(activityYear, month + 1, 0).getDate();
+    for (let day = 1; day <= 31; day++) {
+      if (day > daysInMonth) {
+        grid.append(activityBlankCell());
+        continue;
+      }
+      const dateStr = dateToStr(new Date(activityYear, month, day));
+      if (dateStr > cutoff || (selectedTask && dateStr < selectedTask.createdAt)) {
+        grid.append(activityBlankCell());
+      } else {
+        grid.append(
+          activityDayCell(dateStr, activityCellInfo(dateStr, dailyTasks, selectedTask), today)
+        );
+      }
     }
   });
 
@@ -853,6 +908,12 @@ function setActivityView(view) {
     }
   }
   activityView = view;
+  refreshActivity();
+}
+
+function setActivityYearLayout(layout) {
+  if (layout === activityYearLayout) return;
+  activityYearLayout = layout;
   refreshActivity();
 }
 
@@ -961,6 +1022,17 @@ document.querySelectorAll(".activity-view-button").forEach((button) => {
   });
 });
 
+document.querySelectorAll(".activity-year-layout-button").forEach((button) => {
+  button.addEventListener("click", () => {
+    setActivityYearLayout(button.dataset.layout);
+  });
+});
+
+// the year layout depends on the viewport width, so redraw when it changes
+narrowViewport.addEventListener("change", () => {
+  if (isActivityOpen()) refreshActivity();
+});
+
 document.getElementById("activity-filter").addEventListener("change", (e) => {
   setActivityTask(e.target.value);
 });
@@ -980,7 +1052,7 @@ document.addEventListener("keydown", (e) => {
     dialog.querySelectorAll(
       'button:not([disabled]), select:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
     )
-  );
+  ).filter((el) => !el.closest("[hidden]"));
   if (focusable.length === 0) return;
 
   const first = focusable[0];
