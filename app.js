@@ -666,11 +666,13 @@ function buildActivityMonthGrid(dailyTasks, selectedTask) {
   const last = new Date(activityYear, activityMonth + 1, 0);
   const monthStart = dateToStr(first);
   const monthEnd = dateToStr(last);
-  const cutoff = selectedIndex >= currentIndex ? todayStr(-1) : monthEnd;
+  const today = todayStr();
+  const cutoff = selectedIndex >= currentIndex ? today : monthEnd;
 
   const weekStarts = [];
   const week = mondayOf(first);
-  const lastWeek = mondayOf(last);
+  const lastWeek =
+    selectedIndex === currentIndex ? mondayOf(dateFromStr(today)) : mondayOf(last);
   while (week <= lastWeek) {
     weekStarts.push(new Date(week));
     week.setDate(week.getDate() + 7);
@@ -708,6 +710,7 @@ function buildActivityMonthGrid(dailyTasks, selectedTask) {
         cell.dataset.date = dateStr;
         cell.title = info.title;
         cell.classList.add(`level-${info.level}`);
+        if (dateStr === today) cell.classList.add("is-today");
       }
       grid.append(cell);
     }
@@ -720,7 +723,8 @@ function buildActivityYearGrid(dailyTasks, selectedTask) {
   const currentYear = effectiveNow().getFullYear();
   const yearStart = dateToStr(new Date(activityYear, 0, 1));
   const yearEnd = dateToStr(new Date(activityYear, 11, 31));
-  const cutoff = activityYear >= currentYear ? todayStr(-1) : yearEnd;
+  const today = todayStr();
+  const cutoff = activityYear >= currentYear ? today : yearEnd;
 
   const weekStarts = [];
   const firstWeek = mondayOf(new Date(activityYear, 0, 1));
@@ -779,6 +783,7 @@ function buildActivityYearGrid(dailyTasks, selectedTask) {
         cell.dataset.date = dateStr;
         cell.title = info.title;
         cell.classList.add(`level-${info.level}`);
+        if (dateStr === today) cell.classList.add("is-today");
       }
       grid.append(cell);
     }

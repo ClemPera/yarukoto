@@ -238,25 +238,27 @@ describe("month view", () => {
     );
   });
 
-  it("is Monday-first and ends the current month yesterday", () => {
+  it("is Monday-first and ends today", () => {
     const dom = seed([makeTask("habit", "2026-01-01")]);
     const doc = dom.window.document;
     open(doc);
     setView(doc, "month");
 
-    const cells = Array.from(doc.querySelectorAll("#activity-graph .activity-grid .activity-cell"));
+    const grid = doc.querySelector("#activity-graph .activity-grid");
+    const cells = Array.from(grid.querySelectorAll(".activity-cell"));
     const all = dates(doc);
 
-    expect(cells).toHaveLength(42);
+    expect(grid.style.getPropertyValue("--activity-weeks")).toBe("3");
+    expect(cells).toHaveLength(21);
     expect(cells[0].classList.contains("is-out")).toBe(true);
     expect(cells[6].dataset.date).toBe("2026-03-01");
     expect(cells[7].dataset.date).toBe("2026-03-02");
 
-    expect(all).toHaveLength(14);
+    expect(all).toHaveLength(15);
     expect(all[0]).toBe("2026-03-01");
-    expect(all.at(-1)).toBe("2026-03-14");
-    expect(all).not.toContain("2026-03-15");
-    expect(cell(doc, "2026-03-15")).toBeNull();
+    expect(all.at(-1)).toBe("2026-03-15");
+    expect(all).toContain("2026-03-15");
+    expect(cell(doc, "2026-03-16")).toBeNull();
     expect(doc.querySelector(".activity-cell.is-out[data-date]")).toBeNull();
   });
 
@@ -285,11 +287,11 @@ describe("month view", () => {
     click(next);
     expect(period.textContent).toBe(localePeriod(2026, 2));
     expect(next.disabled).toBe(true);
-    expect(dates(doc)).toHaveLength(14);
+    expect(dates(doc)).toHaveLength(15);
 
     click(next);
     expect(period.textContent).toBe(localePeriod(2026, 2));
-    expect(dates(doc)).toHaveLength(14);
+    expect(dates(doc)).toHaveLength(15);
   });
 
   it("crosses from January 2026 back to December 2025 and forward again", () => {
@@ -317,6 +319,57 @@ describe("month view", () => {
     expect(dates(doc)).toHaveLength(31);
     expect(dates(doc)[0]).toBe("2026-01-01");
     expect(dates(doc).at(-1)).toBe("2026-01-31");
+  });
+});
+
+describe("today", () => {
+  const todayTasks = [
+    makeTask("read", "2026-01-01", ["2026-03-15"], { title: "Read 10 pages" }),
+  ];
+
+  it("shows today in the year view with its live level and tooltip", () => {
+    const dom = seed(todayTasks);
+    const doc = dom.window.document;
+    open(doc);
+
+    const todayCell = cell(doc, "2026-03-15");
+    expect(todayCell).not.toBeNull();
+    expect(todayCell.classList.contains("is-today")).toBe(true);
+    expect(todayCell.classList.contains("level-4")).toBe(true);
+    expect(todayCell.title).toBe(`${fullDate(2026, 2, 15)}\nRead 10 pages`);
+    expect(doc.querySelectorAll(".activity-cell.is-today")).toHaveLength(1);
+
+    expect(cell(doc, "2026-03-16")).toBeNull();
+    expect(dates(doc)).toHaveLength(74);
+    expect(dates(doc).at(-1)).toBe("2026-03-15");
+    expect(doc.querySelector("#activity-graph .activity-year-grid").dataset.weeks).toBe("53");
+  });
+
+  it("shows today in the month view and stops after today's week", () => {
+    const dom = seed(todayTasks);
+    const doc = dom.window.document;
+    open(doc);
+    setView(doc, "month");
+
+    const grid = doc.querySelector("#activity-graph .activity-grid");
+    const todayCell = cell(doc, "2026-03-15");
+    expect(grid.style.getPropertyValue("--activity-weeks")).toBe("3");
+    expect(grid.querySelectorAll(".activity-cell")).toHaveLength(21);
+    expect(todayCell).not.toBeNull();
+    expect(todayCell.classList.contains("is-today")).toBe(true);
+    expect(todayCell.classList.contains("level-4")).toBe(true);
+    expect(todayCell.title).toBe(`${fullDate(2026, 2, 15)}\nRead 10 pages`);
+    expect(doc.querySelectorAll(".activity-cell.is-today")).toHaveLength(1);
+
+    expect(cell(doc, "2026-03-16")).toBeNull();
+    expect(dates(doc)).toHaveLength(15);
+    expect(dates(doc).at(-1)).toBe("2026-03-15");
+
+    click(doc.getElementById("activity-prev"));
+    expect(dates(doc)).toHaveLength(28);
+    expect(dates(doc)[0]).toBe("2026-02-01");
+    expect(dates(doc).at(-1)).toBe("2026-02-28");
+    expect(doc.querySelectorAll(".activity-cell.is-today")).toHaveLength(0);
   });
 });
 
@@ -355,17 +408,17 @@ describe("year view", () => {
     expect(doc.getElementById("activity-next").disabled).toBe(true);
   });
 
-  it("ends the current year yesterday and leaves today and later without cells", () => {
+  it("ends the current year today and leaves tomorrow without a cell", () => {
     const dom = seed([makeTask("habit", "2026-01-01")]);
     const doc = dom.window.document;
     open(doc);
 
     const all = dates(doc);
-    expect(all).toHaveLength(73);
+    expect(all).toHaveLength(74);
     expect(all[0]).toBe("2026-01-01");
-    expect(all.at(-1)).toBe("2026-03-14");
-    expect(all).not.toContain("2026-03-15");
-    expect(cell(doc, "2026-03-15")).toBeNull();
+    expect(all.at(-1)).toBe("2026-03-15");
+    expect(all).toContain("2026-03-15");
+    expect(cell(doc, "2026-03-16")).toBeNull();
     expect(doc.querySelector(".activity-cell.is-out[data-date]")).toBeNull();
     expect(doc.querySelectorAll("#activity-graph .activity-cell")).toHaveLength(53 * 7);
   });
@@ -389,11 +442,11 @@ describe("year view", () => {
     click(next);
     expect(period.textContent).toBe("2026");
     expect(next.disabled).toBe(true);
-    expect(dates(doc)).toHaveLength(73);
+    expect(dates(doc)).toHaveLength(74);
 
     click(next);
     expect(period.textContent).toBe("2026");
-    expect(dates(doc)).toHaveLength(73);
+    expect(dates(doc)).toHaveLength(74);
   });
 
   it("uses 54 week columns for a year that needs them", () => {
@@ -453,7 +506,7 @@ describe("view switching", () => {
     setView(doc, "month");
     expect(period.textContent).toBe(localePeriod(2026, 2));
     expect(next.disabled).toBe(true);
-    expect(dates(doc)).toHaveLength(14);
+    expect(dates(doc)).toHaveLength(15);
   });
 });
 
@@ -568,7 +621,7 @@ describe("task filter", () => {
 
     expect(select.value).toBe("read");
     expect(dates(doc)[0]).toBe("2026-03-05");
-    expect(dates(doc)).toHaveLength(10);
+    expect(dates(doc)).toHaveLength(11);
     expect(cell(doc, "2026-03-04")).toBeNull();
     expect(cell(doc, "2026-03-07").classList.contains("level-4")).toBe(true);
     expect(cell(doc, "2026-03-06").classList.contains("level-0")).toBe(true);
@@ -576,7 +629,7 @@ describe("task filter", () => {
     expect(cell(doc, "2026-03-06").title).toBe(
       `${fullDate(2026, 2, 6)}\nRead 10 pages: Not done`
     );
-    expect(cell(doc, "2026-03-15")).toBeNull();
+    expect(cell(doc, "2026-03-15").classList.contains("is-today")).toBe(true);
 
     expect(graph(doc).getAttribute("aria-label")).toBe(
       `Habit activity for ${localePeriod(2026, 2)}, Read 10 pages. Filled squares mean it was done.`
@@ -593,7 +646,7 @@ describe("task filter", () => {
 
     expect(select.value).toBe("read");
     expect(dates(doc)[0]).toBe("2026-03-05");
-    expect(dates(doc)).toHaveLength(10);
+    expect(dates(doc)).toHaveLength(11);
     expect(cell(doc, "2026-03-04")).toBeNull();
     expect(cell(doc, "2026-03-07").classList.contains("level-4")).toBe(true);
     expect(cell(doc, "2026-03-07").title).toBe(`${fullDate(2026, 2, 7)}\nRead 10 pages: Done`);
@@ -606,12 +659,12 @@ describe("task filter", () => {
     setView(doc, "month");
     expect(select.value).toBe("read");
     expect(doc.getElementById("activity-period-label").textContent).toBe(localePeriod(2026, 2));
-    expect(dates(doc)).toHaveLength(10);
+    expect(dates(doc)).toHaveLength(11);
     expect(doc.getElementById("activity-legend-task").hidden).toBe(false);
 
     setView(doc, "year");
     expect(select.value).toBe("read");
-    expect(dates(doc)).toHaveLength(10);
+    expect(dates(doc)).toHaveLength(11);
   });
 
   it("switches between the five-level and binary legends", () => {
@@ -658,7 +711,7 @@ describe("task filter", () => {
 
     setView(doc, "year");
     expect(select.value).toBe("read");
-    expect(dates(doc)).toHaveLength(10);
+    expect(dates(doc)).toHaveLength(11);
   });
 
   it("does not rebuild the select options or drop focus on a normal re-render", () => {
@@ -766,10 +819,11 @@ describe("live updates", () => {
 
     const after = doc.querySelector("#activity-graph .activity-year-grid");
     expect(after).not.toBe(before);
-    expect(dates(doc)).toHaveLength(73);
+    expect(dates(doc)).toHaveLength(74);
     expect(cell(doc, "2026-03-14").title).toBe(
       `${fullDate(2026, 2, 14)}\nNo habits completed`
     );
+    expect(cell(doc, "2026-03-15").classList.contains("level-4")).toBe(true);
     expect(backdrop(doc).hidden).toBe(false);
     expect(doc.activeElement).toBe(doc.getElementById("activity-dialog-close"));
   });
@@ -778,13 +832,15 @@ describe("live updates", () => {
     const dom = seed([makeTask("habit", "2026-01-01")]);
     const doc = dom.window.document;
     open(doc);
-    expect(dates(doc)).toHaveLength(73);
+    expect(dates(doc)).toHaveLength(74);
 
     setNow(dom, new Date(2026, 2, 16, 0, 1, 0));
     runDueTimers(dom);
 
-    expect(dates(doc)).toHaveLength(74);
-    expect(cell(doc, "2026-03-15")).not.toBeNull();
+    expect(dates(doc)).toHaveLength(75);
+    expect(cell(doc, "2026-03-16")).not.toBeNull();
+    expect(cell(doc, "2026-03-16").classList.contains("is-today")).toBe(true);
+    expect(cell(doc, "2026-03-15").classList.contains("is-today")).toBe(false);
     expect(backdrop(doc).hidden).toBe(false);
   });
 });

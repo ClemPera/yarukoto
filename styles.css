@@ -912,6 +912,11 @@ body {
 
 .activity-cell.is-out { visibility: hidden; }
 
+.activity-cell.is-today {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
 .activity-year-grid {
   --year-gap: 0.3rem;
   display: grid;

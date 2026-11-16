@@ -227,6 +227,12 @@ describe("activity dialog", () => {
     expect(rule(".activity-swatch").width).toBe("0.9rem");
   });
 
+  it("rings today's cell with a visible outline", () => {
+    const ring = rule(".activity-cell.is-today");
+    expect(ring.outline).toBe("2px solid var(--ink)");
+    expect(ring["outline-offset"]).toBe("1px");
+  });
+
   it("keeps padding and future cells in the grid but invisible", () => {
     expect(rule(".activity-cell.is-out").visibility).toBe("hidden");
   });
