@@ -1199,6 +1199,24 @@ body {
   min-width: 0;
 }
 
+.activity-tooltip {
+  position: fixed;
+  z-index: 2100;
+  max-width: min(18rem, calc(100vw - 1rem));
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--paper-line);
+  border-radius: 2px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--page-shadow);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  white-space: pre-line;
+  pointer-events: none;
+}
+
+.activity-tooltip[hidden] { display: none; }
+
 /* the phone year view gets its own layout switch, invisible on desktop */
 @media (max-width: 34rem) {
   .activity-year-layout { display: flex; }

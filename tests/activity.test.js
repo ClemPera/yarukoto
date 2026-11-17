@@ -130,6 +130,35 @@ describe("dialog", () => {
     expect(doc.getElementById("activity-dialog-close").getAttribute("aria-label")).toBe("Close activity");
   });
 
+  it("opens on Month on a phone", () => {
+    const dom = seed([makeTask("habit", "2026-01-01")], { phone: true });
+    const doc = dom.window.document;
+    open(doc);
+
+    expect(doc.querySelector('.activity-view-button[data-view="month"]').getAttribute("aria-pressed")).toBe("true");
+    expect(doc.querySelector("#activity-graph .activity-month-grid")).not.toBeNull();
+    expect(doc.getElementById("activity-period-label").textContent).toBe(localePeriod(2026, 2));
+    expect(doc.getElementById("activity-year-layout").hidden).toBe(true);
+  });
+
+  it("keeps an explicitly chosen view after closing and reopening", () => {
+    const dom = seed([makeTask("habit", "2026-01-01")]);
+    const doc = dom.window.document;
+    open(doc);
+
+    setView(doc, "month");
+    click(doc.getElementById("activity-dialog-close"));
+    open(doc);
+    expect(doc.querySelector('.activity-view-button[data-view="month"]').getAttribute("aria-pressed")).toBe("true");
+    expect(doc.querySelector("#activity-graph .activity-month-grid")).not.toBeNull();
+
+    setView(doc, "year");
+    click(doc.getElementById("activity-dialog-close"));
+    open(doc);
+    expect(doc.querySelector('.activity-view-button[data-view="year"]').getAttribute("aria-pressed")).toBe("true");
+    expect(doc.querySelector("#activity-graph .activity-year-grid")).not.toBeNull();
+  });
+
   it("closes an open history or settings panel when it opens", () => {
     const dom = seed([makeTask("habit", "2026-01-01")]);
     const doc = dom.window.document;
@@ -227,6 +256,81 @@ describe("dialog", () => {
 
     click(doc.getElementById("activity-dialog-close"));
     expect(doc.body.style.overflow).toBe("scroll");
+  });
+});
+
+describe("day tooltips", () => {
+  function tooltip(doc) {
+    return doc.getElementById("activity-tooltip");
+  }
+
+  function expectTooltip(doc, dateText, habit = "habit") {
+    const el = tooltip(doc);
+    expect(el.hidden).toBe(false);
+    expect(el.textContent).toBe(`${dateText}\n${habit}`);
+  }
+
+  it("shows the date and completed habits for a month cell", () => {
+    const dom = seed([makeTask("habit", "2026-01-01", ["2026-03-15"])]);
+    const doc = dom.window.document;
+    open(doc);
+    setView(doc, "month");
+
+    expect(tooltip(doc).hidden).toBe(true);
+    click(cell(doc, "2026-03-15"));
+    expectTooltip(doc, fullDate(2026, 2, 15));
+  });
+
+  it("shows the date and completed habits for a desktop year cell", () => {
+    const dom = seed([makeTask("habit", "2026-01-01", ["2026-03-15"])]);
+    const doc = dom.window.document;
+    open(doc);
+
+    click(cell(doc, "2026-03-15"));
+    expectTooltip(doc, fullDate(2026, 2, 15));
+  });
+
+  it("shows the date and completed habits for a phone month heatmap cell", () => {
+    const dom = seed([makeTask("habit", "2026-01-01", ["2026-03-15"])], { phone: true });
+    const doc = dom.window.document;
+    open(doc);
+    setView(doc, "year");
+
+    expect(doc.querySelector("#activity-graph .activity-year-months")).not.toBeNull();
+    click(cell(doc, "2026-03-15"));
+    expectTooltip(doc, fullDate(2026, 2, 15));
+  });
+
+  it("shows the date and completed habits for a phone week grid cell", () => {
+    const dom = seed([makeTask("habit", "2026-01-01", ["2026-03-15"])], { phone: true });
+    const doc = dom.window.document;
+    open(doc);
+    setView(doc, "year");
+    click(doc.querySelector('.activity-year-layout-button[data-layout="weeks"]'));
+
+    expect(doc.querySelector("#activity-graph .activity-year-scroll")).not.toBeNull();
+    click(cell(doc, "2026-03-15"));
+    expectTooltip(doc, fullDate(2026, 2, 15));
+  });
+
+  it("hides when tapping elsewhere or pressing Escape before closing the dialog", () => {
+    const dom = seed([makeTask("habit", "2026-01-01", ["2026-03-15"])]);
+    const doc = dom.window.document;
+    open(doc);
+    setView(doc, "month");
+
+    click(cell(doc, "2026-03-15"));
+    expect(tooltip(doc).hidden).toBe(false);
+    click(doc.querySelector("#activity-graph .activity-weekday"));
+    expect(tooltip(doc).hidden).toBe(true);
+
+    click(cell(doc, "2026-03-15"));
+    keydown(doc.body, "Escape");
+    expect(tooltip(doc).hidden).toBe(true);
+    expect(backdrop(doc).hidden).toBe(false);
+
+    keydown(doc.body, "Escape");
+    expect(backdrop(doc).hidden).toBe(true);
   });
 });
 
@@ -501,6 +605,7 @@ describe("phone year layout", () => {
     const dom = seed([makeTask("habit", "2026-01-01")], { phone: true });
     const doc = dom.window.document;
     open(doc);
+    setView(doc, "year");
 
     const heatmap = doc.querySelector("#activity-graph .activity-year-months");
     expect(heatmap).not.toBeNull();
@@ -545,6 +650,7 @@ describe("phone year layout", () => {
     const dom = seed([makeTask("habit", "2026-01-01")], { phone: true });
     const doc = dom.window.document;
     open(doc);
+    setView(doc, "year");
 
     click(doc.querySelector('.activity-year-layout-button[data-layout="weeks"]'));
     const scroll = doc.querySelector("#activity-graph .activity-year-scroll");
@@ -570,10 +676,11 @@ describe("phone year layout", () => {
     expect(doc.querySelector('.activity-view-button[data-view="month"]').getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("redraws the open dialog when the viewport crosses the breakpoint", () => {
+  it("redraws the open year dialog when the viewport crosses the breakpoint", () => {
     const dom = seed([makeTask("habit", "2026-01-01")]);
     const doc = dom.window.document;
     open(doc);
+    setView(doc, "year");
 
     expect(doc.querySelector("#activity-graph .activity-year-grid")).not.toBeNull();
     expect(doc.getElementById("activity-year-layout").hidden).toBe(true);
@@ -587,10 +694,24 @@ describe("phone year layout", () => {
     expect(doc.getElementById("activity-year-layout").hidden).toBe(true);
   });
 
+  it("uses the viewport default while the view was never chosen", () => {
+    const dom = seed([makeTask("habit", "2026-01-01")], { phone: true });
+    const doc = dom.window.document;
+    open(doc);
+    expect(doc.querySelector("#activity-graph .activity-month-grid")).not.toBeNull();
+
+    dom.window.__setPhone(false);
+    expect(doc.querySelector("#activity-graph .activity-year-grid")).not.toBeNull();
+
+    dom.window.__setPhone(true);
+    expect(doc.querySelector("#activity-graph .activity-month-grid")).not.toBeNull();
+  });
+
   it("renders the continuous week grid on desktop even after the phone layout changes", () => {
     const dom = seed([makeTask("habit", "2026-01-01")], { phone: true });
     const doc = dom.window.document;
     open(doc);
+    setView(doc, "year");
 
     click(doc.querySelector('.activity-year-layout-button[data-layout="weeks"]'));
     expect(doc.querySelector(".activity-year-scroll")).not.toBeNull();

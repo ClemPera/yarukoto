@@ -143,6 +143,7 @@ let rolloverTimer = null;
 let activityYear = effectiveNow().getFullYear();
 let activityMonth = effectiveNow().getMonth();
 let activityView = "year";
+let activityViewChosen = false;
 let activityYearLayout = "months";
 let activityTaskId = "all";
 let activityFilterSignature = null;
@@ -633,6 +634,7 @@ function renderActivityPeriodLabel() {
 }
 
 function renderActivity(dailyTasks, selectedTask) {
+  hideActivityTooltip();
   const isTaskView = Boolean(selectedTask);
   const isYear = activityView === "year";
   const isNarrow = narrowViewport.matches;
@@ -691,6 +693,34 @@ function activityBlankCell() {
   const cell = document.createElement("span");
   cell.className = "activity-cell is-out";
   return cell;
+}
+
+function isActivityTooltipOpen() {
+  return !document.getElementById("activity-tooltip").hidden;
+}
+
+function hideActivityTooltip() {
+  document.getElementById("activity-tooltip").hidden = true;
+}
+
+function showActivityTooltip(cell) {
+  const tooltip = document.getElementById("activity-tooltip");
+  tooltip.textContent = cell.title;
+  tooltip.hidden = false;
+
+  const rect = cell.getBoundingClientRect();
+  const margin = 8;
+  const gap = 6;
+  const maxLeft = Math.max(margin, window.innerWidth - tooltip.offsetWidth - margin);
+  const maxTop = Math.max(margin, window.innerHeight - tooltip.offsetHeight - margin);
+  let top = rect.top - tooltip.offsetHeight - gap;
+  if (top < margin) top = rect.bottom + gap;
+  const left = Math.min(
+    Math.max(rect.left + rect.width / 2 - tooltip.offsetWidth / 2, margin),
+    maxLeft
+  );
+  tooltip.style.left = `${Math.round(left)}px`;
+  tooltip.style.top = `${Math.round(Math.min(Math.max(top, margin), maxTop))}px`;
 }
 
 function buildActivityMonthGrid(dailyTasks, selectedTask) {
@@ -869,10 +899,16 @@ function unlockActivityScroll() {
   activityScrollLock = null;
 }
 
+function defaultActivityView() {
+  return narrowViewport.matches ? "month" : "year";
+}
+
 function openActivity() {
   const toggle = document.getElementById("activity-toggle");
   if (toggle.hidden || isActivityOpen()) return;
+  if (!activityViewChosen) activityView = defaultActivityView();
   closeFooterPanels();
+  hideActivityTooltip();
   activityReturnFocus = toggle;
   document.getElementById("activity-dialog-backdrop").hidden = false;
   toggle.setAttribute("aria-expanded", "true");
@@ -884,6 +920,7 @@ function openActivity() {
 function closeActivity() {
   const backdrop = document.getElementById("activity-dialog-backdrop");
   if (backdrop.hidden) return;
+  hideActivityTooltip();
   backdrop.hidden = true;
   document.getElementById("activity-toggle").setAttribute("aria-expanded", "false");
   unlockActivityScroll();
@@ -898,6 +935,7 @@ function setActivityTask(id) {
 }
 
 function setActivityView(view) {
+  activityViewChosen = true;
   if (view === activityView) return;
   if (view === "month") {
     const now = effectiveNow();
@@ -1049,8 +1087,19 @@ document.querySelectorAll(".activity-year-layout-button").forEach((button) => {
 
 // the year layout depends on the viewport width, so redraw when it changes
 narrowViewport.addEventListener("change", () => {
+  if (!activityViewChosen) activityView = defaultActivityView();
   if (isActivityOpen()) refreshActivity();
 });
+
+document.getElementById("activity-dialog").addEventListener("click", (e) => {
+  const cell = e.target.closest(".activity-cell[data-date]");
+  if (cell) showActivityTooltip(cell);
+  else hideActivityTooltip();
+});
+
+// scroll events do not bubble, so listen in the capture phase
+document.addEventListener("scroll", hideActivityTooltip, true);
+window.addEventListener("resize", hideActivityTooltip);
 
 document.getElementById("activity-filter").addEventListener("change", (e) => {
   setActivityTask(e.target.value);
@@ -1061,6 +1110,10 @@ document.addEventListener("keydown", (e) => {
 
   if (e.key === "Escape") {
     e.preventDefault();
+    if (isActivityTooltipOpen()) {
+      hideActivityTooltip();
+      return;
+    }
     closeActivity();
     return;
   }
