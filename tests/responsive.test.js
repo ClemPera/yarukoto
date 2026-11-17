@@ -56,10 +56,8 @@ function rootDeclarations() {
 }
 
 function darkRootDeclarations() {
-  const dark = CSS.match(/@media \(prefers-color-scheme: dark\) \{([\s\S]*?)\n\}/);
-  if (!dark) throw new Error("no dark media query");
-  const match = dark[1].match(/:root\s*\{([^}]*)\}/);
-  if (!match) throw new Error("no :root block in the dark media query");
+  const match = CSS.match(/(?:^|\n):root\[data-theme="dark"\]\s*\{([^}]*)\}/);
+  if (!match) throw new Error('no :root[data-theme="dark"] block');
   return declarations(match[1]);
 }
 
@@ -315,6 +313,14 @@ describe("activity dialog", () => {
     );
     expect(grid.width).toBe("max-content");
     expect(rule(".activity-year-scroll .activity-year-weekdays")["position"]).toBe("sticky");
+  });
+});
+
+describe("theme palette", () => {
+  it("switches the palette from the explicit theme, not the OS media query", () => {
+    expect(CSS).not.toMatch(/@media \(prefers-color-scheme: dark\)/);
+    expect(rootDeclarations()["color-scheme"]).toBe("light");
+    expect(darkRootDeclarations()["color-scheme"]).toBe("dark");
   });
 });
 

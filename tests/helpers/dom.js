@@ -31,6 +31,7 @@ const bootHtml = html.replace(
  *   object to store JSON, or a string to store raw text (for corrupt-data tests).
  * - reducedMotion: makes matchMedia("(prefers-reduced-motion: reduce)") match.
  * - phone: makes matchMedia("(max-width: 34rem)") match.
+ * - dark: makes matchMedia("(prefers-color-scheme: dark)") match.
  * - confirm: initial return value of window.confirm (mutable via setConfirm).
  */
 export function loadApp({
@@ -39,6 +40,7 @@ export function loadApp({
   reducedMotion = false,
   confirm = true,
   phone = false,
+  dark = false,
 } = {}) {
   const dom = new JSDOM(bootHtml, {
     url: "https://localhost/",
@@ -73,11 +75,16 @@ export function loadApp({
       };
 
       let phoneMatches = phone;
-      const mediaListeners = new Set();
+      let darkMatches = dark;
+      const phoneListeners = new Set();
+      const darkListeners = new Set();
       window.matchMedia = (query) => {
         const phoneQuery = query.includes("(max-width: 34rem)");
+        const darkQuery = query.includes("(prefers-color-scheme: dark)");
+        const listeners = phoneQuery ? phoneListeners : darkQuery ? darkListeners : null;
         const matches = () =>
           (phoneQuery && phoneMatches) ||
+          (darkQuery && darkMatches) ||
           (reducedMotion && query.includes("prefers-reduced-motion"));
         return {
           get matches() {
@@ -86,16 +93,16 @@ export function loadApp({
           media: query,
           onchange: null,
           addEventListener(type, listener) {
-            if (type === "change" && phoneQuery) mediaListeners.add(listener);
+            if (type === "change" && listeners) listeners.add(listener);
           },
           removeEventListener(type, listener) {
-            if (type === "change" && phoneQuery) mediaListeners.delete(listener);
+            if (type === "change" && listeners) listeners.delete(listener);
           },
           addListener(listener) {
-            if (phoneQuery) mediaListeners.add(listener);
+            if (listeners) listeners.add(listener);
           },
           removeListener(listener) {
-            if (phoneQuery) mediaListeners.delete(listener);
+            if (listeners) listeners.delete(listener);
           },
           dispatchEvent() {
             return false;
@@ -104,8 +111,14 @@ export function loadApp({
       };
       window.__setPhone = (value) => {
         phoneMatches = value;
-        for (const listener of mediaListeners) {
+        for (const listener of phoneListeners) {
           listener({ matches: value, media: "(max-width: 34rem)" });
+        }
+      };
+      window.__setDark = (value) => {
+        darkMatches = value;
+        for (const listener of darkListeners) {
+          listener({ matches: value, media: "(prefers-color-scheme: dark)" });
         }
       };
 

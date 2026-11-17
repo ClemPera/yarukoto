@@ -71,7 +71,11 @@ function loadData() {
   const raw = localStorage.getItem(STORAGE_KEY);
   // only a brand new install (nothing saved yet) gets the intro on its own;
   // anyone with existing data is treated as having seen it
-  const fallback = { version: 1, tasks: [], settings: { resetMinutes: 0, introSeen: raw !== null } };
+  const fallback = {
+    version: 1,
+    tasks: [],
+    settings: { resetMinutes: 0, theme: "system", introSeen: raw !== null },
+  };
   if (!raw) return fallback;
   try {
     const parsed = JSON.parse(raw);
@@ -87,6 +91,20 @@ function saveData(data) {
 
 function getResetMinutes() {
   return state.settings.resetMinutes ?? 0;
+}
+
+function getTheme() {
+  const theme = state.settings.theme;
+  return theme === "light" || theme === "dark" ? theme : "system";
+}
+
+const darkScheme = window.matchMedia("(prefers-color-scheme: dark)");
+
+// resolve "system" to the OS choice so CSS only ever sees light or dark
+function applyTheme() {
+  const theme = getTheme();
+  const dark = theme === "dark" || (theme === "system" && darkScheme.matches);
+  document.documentElement.dataset.theme = dark ? "dark" : "light";
 }
 
 // "now" shifted back by the configured reset time, so the calendar date of
@@ -432,6 +450,7 @@ function render() {
     day: "numeric",
   });
   document.getElementById("reset-time-input").value = minutesToTimeStr(getResetMinutes());
+  document.getElementById("theme-input").value = getTheme();
 
   const today = todayStr();
   renderedDay = today;
@@ -1151,6 +1170,16 @@ document.getElementById("reset-time-input").addEventListener("change", (e) => {
   scheduleRolloverCheck();
 });
 
+document.getElementById("theme-input").addEventListener("change", (e) => {
+  state.settings.theme = e.target.value;
+  saveData(state);
+  applyTheme();
+});
+
+darkScheme.addEventListener("change", () => {
+  if (getTheme() === "system") applyTheme();
+});
+
 document.getElementById("export-button").addEventListener("click", () => {
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -1169,8 +1198,12 @@ document.getElementById("import-input").addEventListener("change", async (e) => 
     const parsed = JSON.parse(text);
     if (!Array.isArray(parsed.tasks)) throw new Error("invalid file");
     if (!confirm("Replace current tasks with this backup?")) return;
-    state = { ...parsed, settings: { resetMinutes: 0, ...parsed.settings, introSeen: true } };
+    state = {
+      ...parsed,
+      settings: { resetMinutes: 0, theme: "system", ...parsed.settings, introSeen: true },
+    };
     saveData(state);
+    applyTheme();
     render();
     scheduleRolloverCheck();
   } catch {
@@ -1221,5 +1254,6 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+applyTheme();
 render();
 if (!state.settings.introSeen) showIntro();
