@@ -1,8 +1,16 @@
 import { loadApp, plain, STORAGE_KEY } from "./helpers/dom.js";
 
 // a brand new install has not seen the intro yet; anyone with saved data has
-const FRESH_INSTALL = { version: 1, tasks: [], settings: { resetMinutes: 0, introSeen: false } };
-const EXISTING_INSTALL = { version: 1, tasks: [], settings: { resetMinutes: 0, introSeen: true } };
+const FRESH_INSTALL = {
+  version: 1,
+  tasks: [],
+  settings: { resetMinutes: 0, theme: "system", introSeen: false },
+};
+const EXISTING_INSTALL = {
+  version: 1,
+  tasks: [],
+  settings: { resetMinutes: 0, theme: "system", introSeen: true },
+};
 
 describe("uid", () => {
   it("returns a non-empty two-part string", () => {
@@ -99,7 +107,7 @@ describe("loadData", () => {
     const dom = loadApp({ storage: { tasks: [{ id: "a" }] } });
     const data = plain(dom.window.loadData());
     expect(data.tasks).toEqual([{ id: "a" }]);
-    expect(data.settings).toEqual({ resetMinutes: 0, introSeen: true });
+    expect(data.settings).toEqual({ resetMinutes: 0, theme: "system", introSeen: true });
   });
 
   it("preserves a stored resetMinutes", () => {

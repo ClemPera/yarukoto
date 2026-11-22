@@ -30,9 +30,18 @@ const bootHtml = html.replace(
  * - storage: value seeded into localStorage before the app loads. Pass an
  *   object to store JSON, or a string to store raw text (for corrupt-data tests).
  * - reducedMotion: makes matchMedia("(prefers-reduced-motion: reduce)") match.
+ * - phone: makes matchMedia("(max-width: 34rem)") match.
+ * - dark: makes matchMedia("(prefers-color-scheme: dark)") match.
  * - confirm: initial return value of window.confirm (mutable via setConfirm).
  */
-export function loadApp({ now = FIXED_NOW, storage, reducedMotion = false, confirm = true } = {}) {
+export function loadApp({
+  now = FIXED_NOW,
+  storage,
+  reducedMotion = false,
+  confirm = true,
+  phone = false,
+  dark = false,
+} = {}) {
   const dom = new JSDOM(bootHtml, {
     url: "https://localhost/",
     runScripts: "dangerously",
@@ -65,18 +74,53 @@ export function loadApp({ now = FIXED_NOW, storage, reducedMotion = false, confi
         window.__timers.delete(id);
       };
 
-      window.matchMedia = (query) => ({
-        matches: reducedMotion && query.includes("prefers-reduced-motion"),
-        media: query,
-        onchange: null,
-        addEventListener() {},
-        removeEventListener() {},
-        addListener() {},
-        removeListener() {},
-        dispatchEvent() {
-          return false;
-        },
-      });
+      let phoneMatches = phone;
+      let darkMatches = dark;
+      const phoneListeners = new Set();
+      const darkListeners = new Set();
+      window.matchMedia = (query) => {
+        const phoneQuery = query.includes("(max-width: 34rem)");
+        const darkQuery = query.includes("(prefers-color-scheme: dark)");
+        const listeners = phoneQuery ? phoneListeners : darkQuery ? darkListeners : null;
+        const matches = () =>
+          (phoneQuery && phoneMatches) ||
+          (darkQuery && darkMatches) ||
+          (reducedMotion && query.includes("prefers-reduced-motion"));
+        return {
+          get matches() {
+            return matches();
+          },
+          media: query,
+          onchange: null,
+          addEventListener(type, listener) {
+            if (type === "change" && listeners) listeners.add(listener);
+          },
+          removeEventListener(type, listener) {
+            if (type === "change" && listeners) listeners.delete(listener);
+          },
+          addListener(listener) {
+            if (listeners) listeners.add(listener);
+          },
+          removeListener(listener) {
+            if (listeners) listeners.delete(listener);
+          },
+          dispatchEvent() {
+            return false;
+          },
+        };
+      };
+      window.__setPhone = (value) => {
+        phoneMatches = value;
+        for (const listener of phoneListeners) {
+          listener({ matches: value, media: "(max-width: 34rem)" });
+        }
+      };
+      window.__setDark = (value) => {
+        darkMatches = value;
+        for (const listener of darkListeners) {
+          listener({ matches: value, media: "(prefers-color-scheme: dark)" });
+        }
+      };
 
       window.__confirm = confirm;
       window.confirm = () => window.__confirm;
@@ -209,12 +253,13 @@ export function submit(form) {
   );
 }
 
-export function keydown(el, key) {
+export function keydown(el, key, options = {}) {
   el.dispatchEvent(
     new el.ownerDocument.defaultView.KeyboardEvent("keydown", {
       key,
       bubbles: true,
       cancelable: true,
+      ...options,
     })
   );
 }

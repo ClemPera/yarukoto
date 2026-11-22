@@ -125,6 +125,43 @@ describe("footer panels", () => {
     expect(settingsPanel.hidden).toBe(true);
     expect(settingsToggle.getAttribute("aria-expanded")).toBe("false");
   });
+
+  it("closes the other footer panel when one opens", () => {
+    const dom = loadApp();
+    const doc = dom.window.document;
+    const historyPanel = doc.getElementById("history-panel");
+    const historyToggle = doc.getElementById("history-toggle");
+    const settingsPanel = doc.getElementById("settings-panel");
+    const settingsToggle = doc.getElementById("settings-toggle");
+
+    click(historyToggle);
+    expect(historyPanel.hidden).toBe(false);
+    expect(settingsPanel.hidden).toBe(true);
+
+    click(settingsToggle);
+    expect(historyPanel.hidden).toBe(true);
+    expect(historyToggle.getAttribute("aria-expanded")).toBe("false");
+    expect(settingsPanel.hidden).toBe(false);
+    expect(settingsToggle.getAttribute("aria-expanded")).toBe("true");
+
+    click(historyToggle);
+    expect(settingsPanel.hidden).toBe(true);
+    expect(settingsToggle.getAttribute("aria-expanded")).toBe("false");
+    expect(historyPanel.hidden).toBe(false);
+    expect(historyToggle.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("closes the open panel when help opens", () => {
+    const dom = loadApp();
+    const doc = dom.window.document;
+
+    click(doc.getElementById("history-toggle"));
+    click(doc.getElementById("help-button"));
+
+    expect(doc.getElementById("history-panel").hidden).toBe(true);
+    expect(doc.getElementById("history-toggle").getAttribute("aria-expanded")).toBe("false");
+    expect(doc.getElementById("intro-backdrop").hidden).toBe(false);
+  });
 });
 
 describe("reset time", () => {

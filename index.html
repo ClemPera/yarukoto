@@ -7,6 +7,19 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23B23A2E'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&display=swap" rel="stylesheet">
+  <script>
+    // resolve the palette before the stylesheet paints, so there is no flash
+    (() => {
+      let theme = "light";
+      try {
+        theme = (JSON.parse(localStorage.getItem("yarukoto-data")).settings || {}).theme;
+      } catch {}
+      if (theme !== "light" && theme !== "dark") {
+        theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      document.documentElement.dataset.theme = theme;
+    })();
+  </script>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -48,6 +61,7 @@
     <footer class="page-footer">
       <button type="button" class="link-button" id="history-toggle" aria-expanded="false" aria-controls="history-panel">history</button>
       <button type="button" class="link-button" id="settings-toggle" aria-expanded="false" aria-controls="settings-panel">settings</button>
+      <button type="button" class="link-button" id="activity-toggle" aria-haspopup="dialog" aria-controls="activity-dialog" aria-expanded="false">activity</button>
       <button type="button" class="link-button" id="export-button">export</button>
       <label class="link-button file-label">
         import
@@ -62,6 +76,13 @@
       <label class="settings-row" for="reset-time-input">Day resets at</label>
       <input type="time" id="reset-time-input" value="00:00">
       <p class="settings-hint">Your local time. Before this, it still counts as the previous day.</p>
+      <label class="settings-row" for="theme-input">Theme</label>
+      <select id="theme-input">
+        <option value="system">System</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+      <p class="settings-hint">System follows your device appearance.</p>
     </section>
 
     <section class="history-panel" id="history-panel" hidden>
@@ -102,6 +123,52 @@
       <p class="modal-hint">You can open this again from "help" at the bottom.</p>
     </div>
   </div>
+
+  <div class="modal-backdrop activity-dialog-backdrop" id="activity-dialog-backdrop" hidden>
+    <div class="modal activity-dialog" id="activity-dialog" role="dialog" aria-modal="true" aria-labelledby="activity-dialog-title">
+      <div class="activity-dialog-head">
+        <h2 class="modal-title" id="activity-dialog-title">Activity</h2>
+        <button type="button" class="activity-dialog-close" id="activity-dialog-close" aria-label="Close activity">&times;</button>
+      </div>
+      <div class="activity-dialog-toolbar">
+        <div class="activity-view-toggle" role="group" aria-label="Activity view">
+          <button type="button" class="activity-view-button" data-view="month" aria-pressed="false">Month</button>
+          <button type="button" class="activity-view-button" data-view="year" aria-pressed="true">Year</button>
+        </div>
+        <label class="activity-filter" for="activity-filter">
+          <span>Show</span>
+          <select id="activity-filter" aria-controls="activity-graph"></select>
+        </label>
+      </div>
+      <div class="activity-period-nav activity-dialog-nav">
+        <button type="button" class="activity-arrow" id="activity-prev" aria-label="Previous year">&lsaquo;</button>
+        <span class="activity-period-label" id="activity-period-label" aria-live="polite"></span>
+        <button type="button" class="activity-arrow" id="activity-next" aria-label="Next year">&rsaquo;</button>
+      </div>
+      <div class="activity-graph activity-dialog-graph" id="activity-graph" role="img"></div>
+      <div class="activity-year-layout" id="activity-year-layout" role="group" aria-label="Year layout" hidden>
+        <button type="button" class="activity-year-layout-button" data-layout="months" aria-pressed="true">Months</button>
+        <button type="button" class="activity-year-layout-button" data-layout="weeks" aria-pressed="false">Weeks</button>
+      </div>
+      <div class="activity-legend" id="activity-legend-all" aria-hidden="true">
+        <span>Less</span>
+        <span class="activity-swatch level-0"></span>
+        <span class="activity-swatch level-1"></span>
+        <span class="activity-swatch level-2"></span>
+        <span class="activity-swatch level-3"></span>
+        <span class="activity-swatch level-4"></span>
+        <span>More</span>
+      </div>
+      <div class="activity-legend" id="activity-legend-task" aria-hidden="true" hidden>
+        <span>Not done</span>
+        <span class="activity-swatch level-0"></span>
+        <span class="activity-swatch level-4"></span>
+        <span>Done</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="activity-tooltip" id="activity-tooltip" role="status" aria-live="polite" hidden></div>
 
   <script src="app.js"></script>
 </body>
