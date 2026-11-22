@@ -580,6 +580,10 @@ function updateActivityVisibility(dailyTasks) {
   if (isActivityOpen()) closeActivity();
 }
 
+function activityHabitDetails(date, habits) {
+  return `${date}\n\nHabits:\n${habits.map((habit) => `- ${habit}`).join("\n")}`;
+}
+
 function activityCellInfo(dateStr, dailyTasks, selectedTask) {
   const date = formatFullHistoryDate(dateStr);
 
@@ -587,19 +591,24 @@ function activityCellInfo(dateStr, dailyTasks, selectedTask) {
     const done = selectedTask.completions.includes(dateStr);
     return {
       level: done ? 4 : 0,
-      title: `${date}\n${selectedTask.title}: ${done ? "Done" : "Not done"}`,
+      title: activityHabitDetails(date, [
+        `${selectedTask.title}: ${done ? "Done" : "Not done"}`,
+      ]),
     };
   }
 
   const existing = dailyTasks.filter((t) => t.createdAt <= dateStr);
-  if (existing.length === 0) return { level: 0, noData: true, title: `${date}\nNo habits yet` };
+  if (existing.length === 0) return { level: 0, noData: true, title: `${date}\n\nNo habits yet` };
 
   const done = existing.filter((t) => t.completions.includes(dateStr));
-  if (done.length === 0) return { level: 0, title: `${date}\nNo habits completed` };
+  if (done.length === 0) return { level: 0, title: `${date}\n\nNo habits completed` };
 
   return {
     level: Math.ceil((done.length / existing.length) * 4),
-    title: [date, ...done.map((t) => t.title)].join("\n"),
+    title: activityHabitDetails(
+      date,
+      done.map((t) => t.title)
+    ),
   };
 }
 

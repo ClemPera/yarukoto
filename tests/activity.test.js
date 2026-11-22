@@ -267,7 +267,7 @@ describe("day tooltips", () => {
   function expectTooltip(doc, dateText, habit = "habit") {
     const el = tooltip(doc);
     expect(el.hidden).toBe(false);
-    expect(el.textContent).toBe(`${dateText}\n${habit}`);
+    expect(el.textContent).toBe(`${dateText}\n\nHabits:\n- ${habit}`);
   }
 
   it("shows the date and completed habits for a month cell", () => {
@@ -414,7 +414,7 @@ describe("month view", () => {
 
     const lastDay = cell(doc, "2026-02-28");
     expect(lastDay.classList.contains("level-4")).toBe(true);
-    expect(lastDay.title).toBe(`${fullDate(2026, 1, 28)}\nhabit`);
+    expect(lastDay.title).toBe(`${fullDate(2026, 1, 28)}\n\nHabits:\n- habit`);
 
     click(next);
     expect(period.textContent).toBe(localePeriod(2026, 2));
@@ -471,7 +471,7 @@ describe("today", () => {
     expect(todayCell).not.toBeNull();
     expect(todayCell.classList.contains("is-today")).toBe(true);
     expect(todayCell.classList.contains("level-4")).toBe(true);
-    expect(todayCell.title).toBe(`${fullDate(2026, 2, 15)}\nRead 10 pages`);
+    expect(todayCell.title).toBe(`${fullDate(2026, 2, 15)}\n\nHabits:\n- Read 10 pages`);
     expect(doc.querySelectorAll(".activity-cell.is-today")).toHaveLength(1);
 
     expect(cell(doc, "2026-03-16")).toBeNull();
@@ -492,7 +492,7 @@ describe("today", () => {
     expect(todayCell).not.toBeNull();
     expect(todayCell.classList.contains("is-today")).toBe(true);
     expect(todayCell.classList.contains("level-4")).toBe(true);
-    expect(todayCell.title).toBe(`${fullDate(2026, 2, 15)}\nRead 10 pages`);
+    expect(todayCell.title).toBe(`${fullDate(2026, 2, 15)}\n\nHabits:\n- Read 10 pages`);
     expect(doc.querySelectorAll(".activity-cell.is-today")).toHaveLength(1);
 
     expect(cell(doc, "2026-03-16")).toBeNull();
@@ -795,11 +795,11 @@ describe("intensity", () => {
 
     expect(cell(doc, "2026-03-05").classList.contains("level-0")).toBe(true);
     expect(cell(doc, "2026-03-05").classList.contains("is-no-data")).toBe(true);
-    expect(cell(doc, "2026-03-05").title).toBe(`${fullDate(2026, 2, 5)}\nNo habits yet`);
+    expect(cell(doc, "2026-03-05").title).toBe(`${fullDate(2026, 2, 5)}\n\nNo habits yet`);
     expect(cell(doc, "2026-03-12").classList.contains("level-0")).toBe(true);
     expect(cell(doc, "2026-03-12").classList.contains("is-no-data")).toBe(false);
     expect(cell(doc, "2026-03-12").title).toBe(
-      `${fullDate(2026, 2, 12)}\nNo habits completed`
+      `${fullDate(2026, 2, 12)}\n\nNo habits completed`
     );
   });
 });
@@ -816,7 +816,7 @@ describe("hover details", () => {
     setView(doc, "month");
 
     expect(cell(doc, "2026-03-14").title).toBe(
-      `${fullDate(2026, 2, 14)}\nRead 10 pages\nDrink water\nStretch`
+      `${fullDate(2026, 2, 14)}\n\nHabits:\n- Read 10 pages\n- Drink water\n- Stretch`
     );
   });
 
@@ -827,9 +827,9 @@ describe("hover details", () => {
     setView(doc, "month");
 
     expect(cell(doc, "2026-03-12").title).toBe(
-      `${fullDate(2026, 2, 12)}\nNo habits completed`
+      `${fullDate(2026, 2, 12)}\n\nNo habits completed`
     );
-    expect(cell(doc, "2026-03-05").title).toBe(`${fullDate(2026, 2, 5)}\nNo habits yet`);
+    expect(cell(doc, "2026-03-05").title).toBe(`${fullDate(2026, 2, 5)}\n\nNo habits yet`);
   });
 
   it("keeps the multi-line details in the year grid", () => {
@@ -841,7 +841,7 @@ describe("hover details", () => {
     open(doc);
 
     expect(cell(doc, "2026-01-05").title).toBe(
-      `${fullDate(2026, 0, 5)}\nRead 10 pages\nDrink water`
+      `${fullDate(2026, 0, 5)}\n\nHabits:\n- Read 10 pages\n- Drink water`
     );
   });
 });
@@ -884,9 +884,9 @@ describe("task filter", () => {
     expect(cell(doc, "2026-03-04")).toBeNull();
     expect(cell(doc, "2026-03-07").classList.contains("level-4")).toBe(true);
     expect(cell(doc, "2026-03-06").classList.contains("level-0")).toBe(true);
-    expect(cell(doc, "2026-03-07").title).toBe(`${fullDate(2026, 2, 7)}\nRead 10 pages: Done`);
+    expect(cell(doc, "2026-03-07").title).toBe(`${fullDate(2026, 2, 7)}\n\nHabits:\n- Read 10 pages: Done`);
     expect(cell(doc, "2026-03-06").title).toBe(
-      `${fullDate(2026, 2, 6)}\nRead 10 pages: Not done`
+      `${fullDate(2026, 2, 6)}\n\nHabits:\n- Read 10 pages: Not done`
     );
     expect(cell(doc, "2026-03-15").classList.contains("is-today")).toBe(true);
 
@@ -908,7 +908,7 @@ describe("task filter", () => {
     expect(dates(doc)).toHaveLength(11);
     expect(cell(doc, "2026-03-04")).toBeNull();
     expect(cell(doc, "2026-03-07").classList.contains("level-4")).toBe(true);
-    expect(cell(doc, "2026-03-07").title).toBe(`${fullDate(2026, 2, 7)}\nRead 10 pages: Done`);
+    expect(cell(doc, "2026-03-07").title).toBe(`${fullDate(2026, 2, 7)}\n\nHabits:\n- Read 10 pages: Done`);
     expect(doc.getElementById("activity-legend-all").hidden).toBe(true);
     expect(doc.getElementById("activity-legend-task").hidden).toBe(false);
     expect(graph(doc).getAttribute("aria-label")).toBe(
@@ -1081,7 +1081,7 @@ describe("live updates", () => {
     expect(after).not.toBe(before);
     expect(dates(doc)).toHaveLength(74);
     expect(cell(doc, "2026-03-14").title).toBe(
-      `${fullDate(2026, 2, 14)}\nNo habits completed`
+      `${fullDate(2026, 2, 14)}\n\nNo habits completed`
     );
     expect(cell(doc, "2026-03-15").classList.contains("level-4")).toBe(true);
     expect(backdrop(doc).hidden).toBe(false);
